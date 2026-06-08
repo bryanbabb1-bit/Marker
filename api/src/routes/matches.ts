@@ -4,7 +4,7 @@ import { MATCH_TYPES } from '../types';
 import { json, error } from '../lib/response';
 import { newId, now } from '../lib/id';
 import {
-  parseBody, requireString, requireEnum,
+  parseBody, requireString, optionalString, requireEnum,
   requireInt, optionalNumber, requireDate, optionalTime,
 } from '../lib/validate';
 
@@ -83,6 +83,14 @@ async function discover(auth: AuthContext, env: Env): Promise<Response> {
 async function create(auth: AuthContext, request: Request, env: Env): Promise<Response> {
   const body = await parseBody(request);
 
+  // Optional structured tee link. When present, it's what the engine uses to
+  // settle the match; course_name/tee_color are still stored for display.
+  const tee_id = optionalString(body.tee_id, 'tee_id', 32);
+  if (tee_id) {
+    const tee = await env.DB.prepare('SELECT id FROM tees WHERE id = ?').bind(tee_id).first();
+    if (!tee) return error('Unknown tee_id', 400);
+  }
+
   const course_name = requireString(body.course_name, 'course_name');
   const tee_color = requireString(body.tee_color, 'tee_color', 32);
   const play_date = requireDate(body.play_date, 'play_date');
@@ -99,11 +107,11 @@ async function create(auth: AuthContext, request: Request, env: Env): Promise<Re
   const ts = now();
   await env.DB.prepare(
     `INSERT INTO matches
-       (id, creator_id, status, course_name, tee_color, play_date, play_time,
+       (id, creator_id, status, course_name, tee_color, tee_id, play_date, play_time,
         match_type, stakes, hcp_range_min, hcp_range_max, created_at, updated_at)
-     VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
-    id, auth.userId, course_name, tee_color, play_date, play_time,
+    id, auth.userId, course_name, tee_color, tee_id, play_date, play_time,
     match_type, stakes, hcp_range_min, hcp_range_max, ts, ts
   ).run();
 

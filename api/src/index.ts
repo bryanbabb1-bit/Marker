@@ -7,6 +7,7 @@ import { handleGetMe, handleUpdateMe } from './routes/users';
 import { handleMatches } from './routes/matches';
 import { handleScorecards } from './routes/scorecards';
 import { handleMessages } from './routes/messages';
+import { handleCourses } from './routes/courses';
 
 // CORS only matters for browsers (Expo Web, dev tooling). Native iOS/Android
 // don't send Origin and aren't subject to CORS. Reflect the Origin only when
@@ -89,6 +90,8 @@ async function handleRequest(
     } else {
       response = await handleMatches(request, auth, env, segments);
     }
+  } else if (root === 'courses') {
+    response = await handleCourses(request, auth, env, segments);
   } else {
     response = error('Not found', 404);
   }
