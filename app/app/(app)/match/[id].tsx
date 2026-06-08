@@ -107,6 +107,9 @@ export default function MatchDetailScreen() {
                 <Ionicons name="trophy-outline" size={18} color={colors.surface} />
                 <Text style={styles.primaryText}>View the reveal</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/scorecard`)}>
+                <Text style={styles.secondaryText}>Head-to-head scorecard</Text>
+              </TouchableOpacity>
             </>
           ) : !mySubmitted ? (
             <>

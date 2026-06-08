@@ -196,6 +196,10 @@ export default function RevealScreen() {
               <Ionicons name="refresh" size={18} color={colors.fairway} />
               <Text style={styles.secondaryText}>Replay</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.replace(`/(app)/match/${id}/scorecard`)}>
+              <Ionicons name="grid-outline" size={18} color={colors.fairway} />
+              <Text style={styles.secondaryText}>Scorecard</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => router.back()}>
               <Text style={styles.primaryText}>Done</Text>
             </TouchableOpacity>
