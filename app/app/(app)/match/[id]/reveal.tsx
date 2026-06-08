@@ -11,7 +11,7 @@ import type { RevealResponse, HoleResult } from '@/types';
 import { deltaLabel } from '@/lib/format';
 import { colors, spacing, radius, typography } from '@/constants/theme';
 
-const STEP_MS = 800; // pace between holes during the auto-reveal
+const STEP_MS = 850; // pace between holes during the auto-reveal
 
 type Outcome = 'win' | 'loss' | 'tie';
 
@@ -23,7 +23,7 @@ export default function RevealScreen() {
   const [data, setData] = useState<RevealResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState(0); // number of holes revealed so far
+  const [step, setStep] = useState(0); // holes revealed so far
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -41,9 +41,15 @@ export default function RevealScreen() {
 
   const meIsCreator = !!data && data.match.creator_id === userId;
   const holes: HoleResult[] = data?.progression?.holes ?? [];
-  const finished = step >= holes.length;
+  const finished = step >= holes.length && holes.length > 0;
 
-  // Auto-advance the reveal one hole at a time until the closeout.
+  // My-perspective signed delta for a given hole result.
+  const myDeltaAt = useCallback(
+    (h: HoleResult) => (meIsCreator ? h.creator_delta : -h.creator_delta),
+    [meIsCreator]
+  );
+
+  // Auto-advance one hole at a time until the closeout.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (loading || !holes.length || finished) return;
@@ -51,28 +57,22 @@ export default function RevealScreen() {
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [loading, holes.length, finished, step]);
 
-  // Running scoreline from MY perspective, up to the latest revealed hole.
-  const myDelta = useMemo(() => {
-    if (step === 0) return 0;
-    const last = holes[Math.min(step, holes.length) - 1];
-    if (!last) return 0;
-    return meIsCreator ? last.creator_delta : -last.creator_delta;
-  }, [step, holes, meIsCreator]);
+  const myDelta = step > 0 ? myDeltaAt(holes[Math.min(step, holes.length) - 1]) : 0;
+  const current = step > 0 ? holes[step - 1] : null;
 
   const outcome: Outcome | null = useMemo(() => {
     const p = data?.progression;
     if (!p) return null;
     if (p.final_result === 'tie') return 'tie';
-    const creatorWon = p.final_result === 'creator_wins';
-    return creatorWon === meIsCreator ? 'win' : 'loss';
+    return (p.final_result === 'creator_wins') === meIsCreator ? 'win' : 'loss';
   }, [data, meIsCreator]);
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={colors.fairway} size="large" /></View>;
   }
 
-  // Reveal is locked until both players submit — the API returns 409.
   if (error || !data) {
+    // Locked until both submit (API 409), or a transient failure.
     return (
       <View style={styles.center}>
         <Ionicons name="lock-closed-outline" size={40} color={colors.muted} />
@@ -84,71 +84,95 @@ export default function RevealScreen() {
   }
 
   if (!data.progression) {
-    // Both cards in, but no course/tee linked so the engine couldn't compute.
     return (
       <View style={styles.center}>
         <Ionicons name="golf-outline" size={40} color={colors.muted} />
-        <Text style={styles.lockedText}>
-          Both cards are in, but this match has no course data to score against yet.
-        </Text>
+        <Text style={styles.lockedText}>Both cards are in, but this match has no course data to score against.</Text>
         <TouchableOpacity onPress={() => router.back()}><Text style={styles.link}>Back to match</Text></TouchableOpacity>
       </View>
     );
   }
 
-  const visible = holes.slice(0, step);
-
   return (
     <View style={styles.flex}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Live scoreline header */}
-        <View style={styles.scoreboard}>
-          <Text style={styles.scoreboardLabel}>{finished ? 'Final' : 'Through ' + step}</Text>
-          <Text style={[styles.scoreboardDelta, deltaColor(myDelta)]}>
+        {/* Climbing scoreline — pops on each hole */}
+        <View style={styles.statusWrap}>
+          <Text style={styles.statusCaption}>{finished ? 'Final' : `Through ${step} of ${holes.length}`}</Text>
+          <Animated.Text key={`status-${step}`} entering={ZoomIn.springify().damping(14)} style={[styles.statusBig, deltaColor(myDelta)]}>
             {deltaLabel(myDelta)}
-          </Text>
+          </Animated.Text>
         </View>
 
-        {/* Hole-by-hole rows, each animating in as it's revealed */}
-        {visible.map((h) => {
-          const mine = meIsCreator
-            ? { gross: h.creator_gross, net: h.creator_net, strokes: h.creator_strokes }
-            : { gross: h.opponent_gross, net: h.opponent_net, strokes: h.opponent_strokes };
-          const theirs = meIsCreator
-            ? { gross: h.opponent_gross, net: h.opponent_net, strokes: h.opponent_strokes }
-            : { gross: h.creator_gross, net: h.creator_net, strokes: h.creator_strokes };
-          const iWon = h.winner === (meIsCreator ? 'creator' : 'opponent');
-          const theyWon = h.winner === (meIsCreator ? 'opponent' : 'creator');
-          const rowDelta = meIsCreator ? h.creator_delta : -h.creator_delta;
+        {/* Hole-by-hole pip strip — the whole round at a glance, filling in */}
+        <View style={styles.pips}>
+          {holes.map((h, i) => {
+            const revealed = i < step;
+            const iWon = h.winner === (meIsCreator ? 'creator' : 'opponent');
+            const halve = h.winner === 'tie';
+            return (
+              <View
+                key={h.hole}
+                style={[
+                  styles.pip,
+                  !revealed && styles.pipPending,
+                  revealed && (halve ? styles.pipHalve : iWon ? styles.pipWin : styles.pipLoss),
+                  revealed && i === step - 1 && styles.pipCurrent,
+                ]}
+              >
+                <Text style={[styles.pipText, revealed && !halve && styles.pipTextOn]}>{h.hole}</Text>
+              </View>
+            );
+          })}
+        </View>
 
-          return (
-            <Animated.View key={h.hole} entering={FadeInDown.springify().damping(16)} style={styles.holeRow}>
-              <View style={styles.holeBadge}><Text style={styles.holeBadgeText}>{h.hole}</Text></View>
+        {/* Current hole detail */}
+        {current && !finished && (
+          <Animated.View key={`hole-${step}`} entering={FadeInDown.springify().damping(16)} style={styles.holeCard}>
+            <Text style={styles.holeCardTitle}>Hole {current.hole}</Text>
+            <View style={styles.holeCardRow}>
+              <HoleSide
+                label="You"
+                gross={meIsCreator ? current.creator_gross : current.opponent_gross}
+                net={meIsCreator ? current.creator_net : current.opponent_net}
+                strokes={meIsCreator ? current.creator_strokes : current.opponent_strokes}
+                won={current.winner === (meIsCreator ? 'creator' : 'opponent')}
+              />
+              <HoleSide
+                label="Them"
+                gross={meIsCreator ? current.opponent_gross : current.creator_gross}
+                net={meIsCreator ? current.opponent_net : current.creator_net}
+                strokes={meIsCreator ? current.opponent_strokes : current.creator_strokes}
+                won={current.winner === (meIsCreator ? 'opponent' : 'creator')}
+              />
+            </View>
+            <Text style={styles.holeCardOutcome}>
+              {current.winner === 'tie'
+                ? 'Halved'
+                : current.winner === (meIsCreator ? 'creator' : 'opponent')
+                ? 'You win the hole'
+                : 'They win the hole'}
+            </Text>
+          </Animated.View>
+        )}
 
-              <PlayerCell label="You" net={mine.net} gross={mine.gross} strokes={mine.strokes} won={iWon} />
-              <PlayerCell label="Them" net={theirs.net} gross={theirs.gross} strokes={theirs.strokes} won={theyWon} />
-
-              <Text style={[styles.rowDelta, deltaColor(rowDelta)]}>{deltaLabel(rowDelta)}</Text>
-            </Animated.View>
-          );
-        })}
-
-        {/* Final result banner */}
+        {/* Final banner */}
         {finished && outcome && (
-          <Animated.View entering={ZoomIn.springify().damping(12)} style={[styles.banner, bannerStyle(outcome)]}>
+          <Animated.View entering={ZoomIn.springify().damping(11)} style={[styles.banner, bannerStyle(outcome)]}>
             <Text style={styles.bannerTitle}>{bannerTitle(outcome)}</Text>
             {outcome !== 'tie' && <Text style={styles.bannerScore}>{data.progression.final_delta}</Text>}
             {data.progression.decided_on_hole != null && (
               <Text style={styles.bannerSub}>Closed out on hole {data.progression.decided_on_hole}</Text>
             )}
             <Text style={styles.bannerTotals}>
-              Gross {data.creator_scorecard.total_gross} – {data.opponent_scorecard.total_gross}
+              Gross {meIsCreator ? data.creator_scorecard.total_gross : data.opponent_scorecard.total_gross}
+              {' – '}
+              {meIsCreator ? data.opponent_scorecard.total_gross : data.creator_scorecard.total_gross}
             </Text>
           </Animated.View>
         )}
       </ScrollView>
 
-      {/* Controls */}
       <View style={styles.footer}>
         {!finished ? (
           <Animated.View entering={FadeIn}>
@@ -172,15 +196,15 @@ export default function RevealScreen() {
   );
 }
 
-function PlayerCell({ label, net, gross, strokes, won }: {
-  label: string; net: number; gross: number; strokes: number; won: boolean;
+function HoleSide({ label, gross, net, strokes, won }: {
+  label: string; gross: number; net: number; strokes: number; won: boolean;
 }) {
   return (
-    <View style={styles.playerCell}>
-      <Text style={styles.playerLabel}>{label}</Text>
-      <Text style={[styles.playerNet, won && styles.playerNetWon]}>{net}</Text>
-      <Text style={styles.playerGross}>
-        gross {gross}{strokes > 0 ? ` · ${strokes}${strokes > 1 ? ' strokes' : ' stroke'}` : ''}
+    <View style={styles.side}>
+      <Text style={styles.sideLabel}>{label}</Text>
+      <Text style={[styles.sideNet, won && styles.sideNetWon]}>{net}</Text>
+      <Text style={styles.sideGross}>
+        gross {gross}{strokes > 0 ? ` · −${strokes}` : ''}
       </Text>
     </View>
   );
@@ -191,7 +215,6 @@ function deltaColor(delta: number) {
   if (delta < 0) return { color: colors.flagRed };
   return { color: colors.muted };
 }
-
 function bannerTitle(o: Outcome): string {
   return o === 'win' ? 'You win! 🏌️' : o === 'loss' ? 'You lost' : 'All Square';
 }
@@ -204,35 +227,43 @@ function bannerStyle(o: Outcome) {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.paper },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg, backgroundColor: colors.paper },
-  container: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
-  scoreboard: {
-    alignItems: 'center', paddingVertical: spacing.md, backgroundColor: colors.surface,
-    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm,
+  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
+  statusWrap: {
+    alignItems: 'center', paddingVertical: spacing.lg, backgroundColor: colors.surface,
+    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
   },
-  scoreboardLabel: { ...typography.caption, textTransform: 'uppercase', letterSpacing: 0.5 },
-  scoreboardDelta: { ...typography.title, fontSize: 30 },
-  holeRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+  statusCaption: { ...typography.caption, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statusBig: { ...typography.title, fontSize: 40, marginTop: spacing.xs },
+  pips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, justifyContent: 'center' },
+  pip: {
+    width: 30, height: 30, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  pipPending: { opacity: 0.4 },
+  pipWin: { backgroundColor: colors.fairway, borderColor: colors.fairway },
+  pipLoss: { backgroundColor: colors.flagRed, borderColor: colors.flagRed },
+  pipHalve: { backgroundColor: colors.sand, borderColor: colors.border },
+  pipCurrent: { transform: [{ scale: 1.15 }] },
+  pipText: { ...typography.caption, fontSize: 12, color: colors.muted },
+  pipTextOn: { color: colors.surface, fontWeight: '700' },
+  holeCard: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, padding: spacing.sm,
+    borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm,
   },
-  holeBadge: {
-    width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.fairway,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  holeBadgeText: { ...typography.bodySemiBold, color: colors.surface },
-  playerCell: { flex: 1, alignItems: 'center' },
-  playerLabel: { ...typography.caption, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
-  playerNet: { ...typography.title, fontSize: 22, color: colors.ink },
-  playerNetWon: { color: colors.fairway },
-  playerGross: { ...typography.caption, fontSize: 11 },
-  rowDelta: { ...typography.bodySemiBold, minWidth: 64, textAlign: 'right' },
+  holeCardTitle: { ...typography.caption, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
+  holeCardRow: { flexDirection: 'row' },
+  side: { flex: 1, alignItems: 'center' },
+  sideLabel: { ...typography.caption, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sideNet: { ...typography.title, fontSize: 30, color: colors.ink },
+  sideNetWon: { color: colors.fairway },
+  sideGross: { ...typography.caption, fontSize: 12 },
+  holeCardOutcome: { ...typography.bodySemiBold, textAlign: 'center', color: colors.ink },
   banner: {
     alignItems: 'center', borderWidth: 2, borderRadius: radius.lg, padding: spacing.lg,
-    marginTop: spacing.md, gap: spacing.xs,
+    gap: spacing.xs,
   },
-  bannerTitle: { ...typography.title, fontSize: 30 },
-  bannerScore: { ...typography.heading, fontSize: 22, color: colors.ink },
+  bannerTitle: { ...typography.title, fontSize: 32 },
+  bannerScore: { ...typography.heading, fontSize: 24, color: colors.ink },
   bannerSub: { ...typography.caption },
   bannerTotals: { ...typography.caption, marginTop: spacing.xs },
   footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
@@ -33,6 +33,15 @@ export default function MatchDetailScreen() {
   }, [api, id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // While a match is live, poll so it flips to "Reveal ready" on its own the
+  // moment the opponent submits — no manual refresh needed.
+  useEffect(() => {
+    const s = match?.status;
+    if (s !== 'accepted' && s !== 'in_progress') return;
+    const t = setInterval(() => { load(); }, 5000);
+    return () => clearInterval(t);
+  }, [match?.status, load]);
 
   const act = async (fn: () => Promise<Match>, confirmLabel: string) => {
     Alert.alert(confirmLabel, 'Are you sure?', [

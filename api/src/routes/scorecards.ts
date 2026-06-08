@@ -4,7 +4,7 @@ import { json, error } from '../lib/response';
 import { newId, now } from '../lib/id';
 import { parseBody, ValidationError } from '../lib/validate';
 import {
-  courseHandicap, computeMatch, strokeDifferenceForHoles,
+  courseHandicap, computeMatch, strokeDifferenceForHoles, allocateStrokes,
   type HoleSpec,
 } from '../lib/scoring';
 
@@ -34,6 +34,7 @@ export async function handleScorecards(
 
   if (sub === 'scorecard' && request.method === 'POST') return submit(auth, env, matchId, request);
   if (sub === 'reveal' && request.method === 'GET') return reveal(auth, env, matchId);
+  if (sub === 'holes' && request.method === 'GET') return holesSetup(auth, env, matchId);
   return error('Not found', 404);
 }
 
@@ -155,7 +156,7 @@ async function settle(env: Env, match: Record<string, any>): Promise<void> {
 }
 
 async function reveal(auth: AuthContext, env: Env, matchId: string): Promise<Response> {
-  const match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first<Record<string, any>>();
+  let match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first<Record<string, any>>();
   if (!match) return error('Match not found', 404);
   if (match.creator_id !== auth.userId && match.opponent_id !== auth.userId) {
     return error('Not your match', 403);
@@ -163,6 +164,15 @@ async function reveal(auth: AuthContext, env: Env, matchId: string): Promise<Res
   // The lock: refuse until BOTH cards are submitted.
   if (!match.creator_scorecard_id || !match.opponent_scorecard_id) {
     return error('Both players must submit before the reveal', 409);
+  }
+
+  // Lazy settle: if both cards are in but the match was never computed (e.g. it
+  // had no tee linked at submit time, since fixed), settle it now so the result
+  // surfaces instead of dead-ending on a stuck in_progress match.
+  if (!match.match_progression && match.tee_id) {
+    await settle(env, match);
+    match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first<Record<string, any>>();
+    if (!match) return error('Match not found', 404);
   }
 
   const [creatorCard, opponentCard] = await Promise.all([
@@ -176,4 +186,68 @@ async function reveal(auth: AuthContext, env: Env, matchId: string): Promise<Res
     opponent_scorecard: opponentCard,
     progression: match.match_progression ? JSON.parse(match.match_progression) : null,
   });
+}
+
+// GET /matches/:id/holes — par + stroke index for each hole the match is played
+// over, plus the handicap strokes the CALLER receives in this match (so score
+// entry can show par context + stroke dots). Never returns any score data, so
+// it's safe to call before the reveal. Returns has_course_data=false (and zero
+// strokes) when no tee is linked.
+async function holesSetup(auth: AuthContext, env: Env, matchId: string): Promise<Response> {
+  const match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?')
+    .bind(matchId).first<Record<string, any>>();
+  if (!match) return error('Match not found', 404);
+  if (match.creator_id !== auth.userId && match.opponent_id !== auth.userId) {
+    return error('Not your match', 403);
+  }
+
+  const range = holeRange(match.match_type);
+  const holeNumbers = Array.from({ length: range.count }, (_, i) => range.min + i);
+
+  if (!match.tee_id) {
+    return json({
+      has_course_data: false,
+      holes: holeNumbers.map((h) => ({ hole: h, par: null, stroke_index: null })),
+      par_total: null,
+      my_strokes: holeNumbers.map(() => 0),
+    });
+  }
+
+  const [tee, holeRows] = await Promise.all([
+    env.DB.prepare('SELECT * FROM tees WHERE id = ?').bind(match.tee_id).first<any>(),
+    env.DB.prepare(
+      'SELECT hole_number, par, stroke_index FROM holes WHERE tee_id = ? AND hole_number BETWEEN ? AND ? ORDER BY hole_number'
+    ).bind(match.tee_id, range.min, range.max).all<any>(),
+  ]);
+
+  if (!tee || !holeRows?.results?.length) {
+    return json({
+      has_course_data: false,
+      holes: holeNumbers.map((h) => ({ hole: h, par: null, stroke_index: null })),
+      par_total: null,
+      my_strokes: holeNumbers.map(() => 0),
+    });
+  }
+
+  const holes = holeRows.results.map((h: any) => ({
+    hole: h.hole_number, par: h.par, stroke_index: h.stroke_index,
+  }));
+
+  // Strokes the caller receives = the net stroke difference, allocated to the
+  // higher-handicap side. Zero for everyone until both handicaps are snapshotted.
+  let my_strokes = holes.map(() => 0);
+  if (match.creator_handicap != null && match.opponent_handicap != null) {
+    const specs: HoleSpec[] = holes.map((h: any) => ({
+      hole: h.hole, par: h.par, stroke_index: h.stroke_index,
+    }));
+    const creatorCH = courseHandicap(match.creator_handicap, tee.slope_rating, tee.course_rating, tee.par);
+    const opponentCH = courseHandicap(match.opponent_handicap, tee.slope_rating, tee.course_rating, tee.par);
+    const diff = strokeDifferenceForHoles(creatorCH, opponentCH, specs.length);
+    const viewerIsCreator = match.creator_id === auth.userId;
+    if (diff > 0 && viewerIsCreator) my_strokes = allocateStrokes(diff, specs);
+    else if (diff < 0 && !viewerIsCreator) my_strokes = allocateStrokes(-diff, specs);
+  }
+
+  const par_total = holes.reduce((s: number, h: any) => s + h.par, 0);
+  return json({ has_course_data: true, holes, par_total, my_strokes });
 }

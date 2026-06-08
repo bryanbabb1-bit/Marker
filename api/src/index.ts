@@ -83,7 +83,7 @@ async function handleRequest(
     // the scorecard/message sub-paths to their dedicated handlers so the
     // contracts are visible from the router.
     const sub = segments[2];
-    if (sub === 'scorecard' || sub === 'reveal') {
+    if (sub === 'scorecard' || sub === 'reveal' || sub === 'holes') {
       response = await handleScorecards(request, auth, env, segments);
     } else if (sub === 'messages') {
       response = await handleMessages(request, auth, env, segments);

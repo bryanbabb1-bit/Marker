@@ -2,7 +2,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useCallback, useMemo, useRef } from 'react';
 import { apiJson } from '@/lib/api';
 import type {
-  DiscoveryMatch, Match, Message, HoleEntry, RevealResponse, SubmitScoresResponse,
+  DiscoveryMatch, Match, Message, HoleEntry, RevealResponse, SubmitScoresResponse, HolesSetup,
 } from '@/types';
 
 export interface CreateMatchInput {
@@ -59,6 +59,8 @@ export function useApi() {
         call<Match>(`/matches/${id}/decline`, { method: 'POST' }),
 
       // Scorecards
+      getMatchHoles: (matchId: string) =>
+        call<HolesSetup>(`/matches/${matchId}/holes`),
       submitScorecard: (matchId: string, holeScores: HoleEntry[]) =>
         call<SubmitScoresResponse>(`/matches/${matchId}/scorecard`, {
           method: 'POST',

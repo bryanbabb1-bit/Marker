@@ -100,6 +100,21 @@ export interface SubmitScoresResponse {
   match?: Match;
 }
 
+export interface HoleInfo {
+  hole: number;
+  par: number | null;
+  stroke_index: number | null;
+}
+
+// GET /matches/:id/holes — par/stroke-index context + the strokes the caller
+// receives in this match. No score data; safe before the reveal.
+export interface HolesSetup {
+  has_course_data: boolean;
+  holes: HoleInfo[];
+  par_total: number | null;
+  my_strokes: number[]; // aligned positionally to `holes`
+}
+
 // Holes a match type is played over (mirrors api/src/routes/scorecards.ts).
 export function holeRangeFor(matchType: MatchType): { min: number; max: number; count: number } {
   if (matchType === 'front_nine') return { min: 1, max: 9, count: 9 };

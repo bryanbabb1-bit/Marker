@@ -84,11 +84,17 @@ async function create(auth: AuthContext, request: Request, env: Env): Promise<Re
   const body = await parseBody(request);
 
   // Optional structured tee link. When present, it's what the engine uses to
-  // settle the match; course_name/tee_color are still stored for display.
-  const tee_id = optionalString(body.tee_id, 'tee_id', 32);
+  // settle the match; course_name/tee_color are still stored for display. When
+  // omitted (the current free-text create flow has no course picker yet), default
+  // to a tee from the catalog so the match is still scorable — otherwise it could
+  // never settle. Drops out cleanly once a real course/tee picker exists.
+  let tee_id = optionalString(body.tee_id, 'tee_id', 32);
   if (tee_id) {
     const tee = await env.DB.prepare('SELECT id FROM tees WHERE id = ?').bind(tee_id).first();
     if (!tee) return error('Unknown tee_id', 400);
+  } else {
+    const fallback = await env.DB.prepare('SELECT id FROM tees ORDER BY id LIMIT 1').first<{ id: string }>();
+    tee_id = fallback?.id ?? null;
   }
 
   const course_name = requireString(body.course_name, 'course_name');
