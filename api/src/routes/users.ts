@@ -29,7 +29,11 @@ export async function handleUpdateMe(auth: AuthContext, request: Request, env: E
   if ('first_name' in body) { fields.push('first_name = ?'); values.push(optionalString(body.first_name, 'first_name')); }
   if ('last_name' in body) { fields.push('last_name = ?'); values.push(optionalString(body.last_name, 'last_name')); }
   if ('ghin_number' in body) { fields.push('ghin_number = ?'); values.push(optionalString(body.ghin_number, 'ghin_number', 32)); }
-  if ('handicap' in body) { fields.push('handicap = ?'); values.push(optionalNumber(body.handicap, 'handicap')); }
+  if ('handicap' in body) {
+    fields.push('handicap = ?'); values.push(optionalNumber(body.handicap, 'handicap'));
+    // Stamp when the index was last set so the app can detect a stale index.
+    fields.push('handicap_updated_at = ?'); values.push(now());
+  }
   if ('profile_photo_url' in body) { fields.push('profile_photo_url = ?'); values.push(optionalString(body.profile_photo_url, 'profile_photo_url', 1024)); }
 
   if (fields.length === 0) return error('No fields to update', 400);

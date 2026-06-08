@@ -7,10 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '@/lib/useApi';
+import { useUserStore } from '@/store/useUserStore';
+import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
 import type { DiscoveryMatch } from '@/types';
 import { MATCH_TYPE_LABELS } from '@/types';
 import { colors, spacing, radius, typography } from '@/constants/theme';
-import { formatHandicap, formatPlayWhen } from '@/lib/format';
+import { formatHandicap, formatPlayWhen, isIndexStale } from '@/lib/format';
 
 export default function DiscoveryScreen() {
   const api = useApi();
@@ -20,6 +22,9 @@ export default function DiscoveryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [passed, setPassed] = useState<Set<string>>(new Set());
   const [acting, setActing] = useState<string | null>(null);
+  const user = useUserStore((s) => s.user);
+  const [pendingAccept, setPendingAccept] = useState<DiscoveryMatch | null>(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -40,7 +45,7 @@ export default function DiscoveryScreen() {
   const onRefresh = () => { setRefreshing(true); load(); };
   const pass = (id: string) => setPassed((p) => new Set(p).add(id));
 
-  const accept = async (m: DiscoveryMatch) => {
+  const doAccept = async (m: DiscoveryMatch) => {
     setActing(m.id);
     try {
       await api.acceptMatch(m.id);
@@ -49,6 +54,28 @@ export default function DiscoveryScreen() {
       Alert.alert('Could not accept', e?.message ?? 'Please try again.');
     } finally {
       setActing(null);
+    }
+  };
+
+  // Confirm/refresh the index before locking it onto the match (only nudges when
+  // it's unset or stale); otherwise accept straight away.
+  const requestAccept = (m: DiscoveryMatch) => {
+    if (user && isIndexStale(user.handicap, user.handicap_updated_at)) setPendingAccept(m);
+    else doAccept(m);
+  };
+
+  const confirmIndexAndAccept = async (index: number) => {
+    setSheetBusy(true);
+    try {
+      const updated = await api.updateMe({ handicap: index });
+      useUserStore.setState({ user: updated });
+      const m = pendingAccept;
+      setPendingAccept(null);
+      if (m) await doAccept(m);
+    } catch (e: any) {
+      Alert.alert('Could not save your index', e?.message ?? 'Please try again.');
+    } finally {
+      setSheetBusy(false);
     }
   };
 
@@ -95,7 +122,7 @@ export default function DiscoveryScreen() {
                 <TouchableOpacity style={[styles.btn, styles.passBtn]} onPress={() => pass(item.id)} disabled={acting === item.id}>
                   <Text style={styles.passText}>Pass</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.btn, styles.acceptBtn]} onPress={() => accept(item)} disabled={acting === item.id}>
+                <TouchableOpacity style={[styles.btn, styles.acceptBtn]} onPress={() => requestAccept(item)} disabled={acting === item.id}>
                   {acting === item.id
                     ? <ActivityIndicator color={colors.surface} />
                     : <Text style={styles.acceptText}>Accept</Text>}
@@ -108,6 +135,16 @@ export default function DiscoveryScreen() {
       <TouchableOpacity style={styles.fab} onPress={() => router.push('/(app)/create')} activeOpacity={0.9}>
         <Ionicons name="add" size={28} color={colors.surface} />
       </TouchableOpacity>
+
+      <ConfirmIndexSheet
+        visible={!!pendingAccept}
+        handicap={user?.handicap ?? null}
+        updatedAt={user?.handicap_updated_at ?? null}
+        actionLabel="Accept match"
+        busy={sheetBusy}
+        onCancel={() => setPendingAccept(null)}
+        onConfirm={confirmIndexAndAccept}
+      />
     </SafeAreaView>
   );
 }

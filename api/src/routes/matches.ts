@@ -109,16 +109,21 @@ async function create(auth: AuthContext, request: Request, env: Env): Promise<Re
     return error('hcp_range_min must be <= hcp_range_max', 400);
   }
 
+  // Lock the creator's Handicap Index onto the match at post time (the app
+  // nudges them to confirm/refresh it first). The opponent's is locked at accept.
+  const creator = await env.DB.prepare('SELECT handicap FROM users WHERE id = ?')
+    .bind(auth.userId).first<{ handicap: number | null }>();
+
   const id = newId();
   const ts = now();
   await env.DB.prepare(
     `INSERT INTO matches
        (id, creator_id, status, course_name, tee_color, tee_id, play_date, play_time,
-        match_type, stakes, hcp_range_min, hcp_range_max, created_at, updated_at)
-     VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        match_type, stakes, hcp_range_min, hcp_range_max, creator_handicap, created_at, updated_at)
+     VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     id, auth.userId, course_name, tee_color, tee_id, play_date, play_time,
-    match_type, stakes, hcp_range_min, hcp_range_max, ts, ts
+    match_type, stakes, hcp_range_min, hcp_range_max, creator?.handicap ?? null, ts, ts
   ).run();
 
   const match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(id).first();
@@ -151,9 +156,11 @@ async function getOne(auth: AuthContext, env: Env, matchId: string): Promise<Res
 }
 
 // ── Accept ───────────────────────────────────────────────────────────────────
-// First eligible golfer to accept claims the open match. Both handicap INDEXES
-// are snapshotted here so a later index change can't rewrite a settled match;
-// course adjustment happens at determination time (Phase 3).
+// First eligible golfer to accept claims the open match. The OPPONENT's index is
+// snapshotted here; the CREATOR's was locked at post time (COALESCE keeps it,
+// falling back to the creator's current index for legacy matches). Locking both
+// pre-round means a later index change can't rewrite a settled match, and the
+// index can't be gamed at score entry. Course adjustment happens at settle time.
 async function accept(auth: AuthContext, env: Env, matchId: string): Promise<Response> {
   const match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?')
     .bind(matchId).first<Record<string, any>>();
@@ -172,7 +179,7 @@ async function accept(auth: AuthContext, env: Env, matchId: string): Promise<Res
   const res = await env.DB.prepare(
     `UPDATE matches
         SET opponent_id = ?, status = 'accepted',
-            creator_handicap = ?, opponent_handicap = ?, updated_at = ?
+            creator_handicap = COALESCE(creator_handicap, ?), opponent_handicap = ?, updated_at = ?
       WHERE id = ? AND status = 'open'`
   ).bind(
     auth.userId, creator?.handicap ?? null, opponent?.handicap ?? null, ts, matchId

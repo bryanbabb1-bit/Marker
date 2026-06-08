@@ -17,6 +17,35 @@ export function formatPlayWhen(date: string, time: string | null | undefined): s
   return `${day} · ${h12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
+// ── Handicap-index freshness ────────────────────────────────────────────────
+// The index is locked onto a match at post/accept; we nudge the user to confirm
+// it when it's unset or older than this window.
+export const INDEX_STALE_DAYS = 14;
+
+function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  return Math.floor((Date.now() - then) / 86_400_000);
+}
+
+// Prompt to confirm the index when it's missing or stale.
+export function isIndexStale(handicap: number | null | undefined, updatedAt: string | null | undefined): boolean {
+  if (handicap == null) return true;
+  const d = daysSince(updatedAt);
+  return d == null || d > INDEX_STALE_DAYS;
+}
+
+// "Updated today" / "Updated 9 days ago" / "Not set yet".
+export function indexAgeLabel(handicap: number | null | undefined, updatedAt: string | null | undefined): string {
+  if (handicap == null) return 'Not set yet';
+  const d = daysSince(updatedAt);
+  if (d == null) return 'Last updated a while ago';
+  if (d <= 0) return 'Updated today';
+  if (d === 1) return 'Updated yesterday';
+  return `Updated ${d} days ago`;
+}
+
 // Match-play scoreline from a signed holes-up delta (viewer's perspective).
 export function deltaLabel(delta: number): string {
   if (delta === 0) return 'All Square';

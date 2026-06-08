@@ -8,6 +8,7 @@ export interface User {
   last_name: string | null;
   ghin_number: string | null;
   handicap: number | null;
+  handicap_updated_at: string | null;
   profile_photo_url: string | null;
   created_at: string;
   updated_at: string;

@@ -4,10 +4,13 @@ import {
   ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useApi } from '@/lib/useApi';
+import { useApi, type CreateMatchInput } from '@/lib/useApi';
+import { useUserStore } from '@/store/useUserStore';
+import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
 import type { MatchType } from '@/types';
 import { MATCH_TYPE_LABELS } from '@/types';
 import { colors, spacing, radius, typography } from '@/constants/theme';
+import { isIndexStale } from '@/lib/format';
 
 const TYPES: MatchType[] = ['front_nine', 'back_nine', 'eighteen'];
 
@@ -27,33 +30,41 @@ export default function CreateMatchScreen() {
   const [hcpMin, setHcpMin] = useState('');
   const [hcpMax, setHcpMax] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const user = useUserStore((s) => s.user);
+  const [pendingCreate, setPendingCreate] = useState<CreateMatchInput | null>(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
 
-  const submit = async () => {
+  // Validate the form and return the create payload, or null (after alerting).
+  const buildPayload = (): CreateMatchInput | null => {
     if (!courseName.trim() || !teeColor.trim()) {
-      Alert.alert('Missing info', 'Course and tees are required.'); return;
+      Alert.alert('Missing info', 'Course and tees are required.'); return null;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(playDate)) {
-      Alert.alert('Invalid date', 'Use YYYY-MM-DD (e.g. 2026-06-14).'); return;
+      Alert.alert('Invalid date', 'Use YYYY-MM-DD (e.g. 2026-06-14).'); return null;
     }
     const min = parseInt(hcpMin, 10);
     const max = parseInt(hcpMax, 10);
     if (!Number.isInteger(min) || !Number.isInteger(max)) {
-      Alert.alert('Handicap range', 'Enter whole numbers for the min and max handicap.'); return;
+      Alert.alert('Handicap range', 'Enter whole numbers for the min and max handicap.'); return null;
     }
-    if (min > max) { Alert.alert('Handicap range', 'Min must be ≤ max.'); return; }
+    if (min > max) { Alert.alert('Handicap range', 'Min must be ≤ max.'); return null; }
 
+    return {
+      course_name: courseName.trim(),
+      tee_color: teeColor.trim(),
+      play_date: playDate,
+      play_time: playTime.trim() || null,
+      match_type: matchType,
+      stakes: stakes.trim() === '' ? null : Number(stakes),
+      hcp_range_min: min,
+      hcp_range_max: max,
+    };
+  };
+
+  const doCreate = async (payload: CreateMatchInput) => {
     setSubmitting(true);
     try {
-      await api.createMatch({
-        course_name: courseName.trim(),
-        tee_color: teeColor.trim(),
-        play_date: playDate,
-        play_time: playTime.trim() || null,
-        match_type: matchType,
-        stakes: stakes.trim() === '' ? null : Number(stakes),
-        hcp_range_min: min,
-        hcp_range_max: max,
-      });
+      await api.createMatch(payload);
       router.back();
     } catch (e: any) {
       Alert.alert('Could not post', e?.message ?? 'Please try again.');
@@ -62,7 +73,32 @@ export default function CreateMatchScreen() {
     }
   };
 
+  // The creator's index is locked onto the match at post time — confirm/refresh
+  // it first when it's unset or stale.
+  const submit = () => {
+    const payload = buildPayload();
+    if (!payload) return;
+    if (user && isIndexStale(user.handicap, user.handicap_updated_at)) setPendingCreate(payload);
+    else doCreate(payload);
+  };
+
+  const confirmIndexAndCreate = async (index: number) => {
+    setSheetBusy(true);
+    try {
+      const updated = await api.updateMe({ handicap: index });
+      useUserStore.setState({ user: updated });
+      const payload = pendingCreate;
+      setPendingCreate(null);
+      if (payload) await doCreate(payload);
+    } catch (e: any) {
+      Alert.alert('Could not save your index', e?.message ?? 'Please try again.');
+    } finally {
+      setSheetBusy(false);
+    }
+  };
+
   return (
+    <View style={styles.flex}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Field label="Course" value={courseName} onChangeText={setCourseName} placeholder="Prairie Highlands" />
@@ -112,6 +148,17 @@ export default function CreateMatchScreen() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+
+    <ConfirmIndexSheet
+      visible={!!pendingCreate}
+      handicap={user?.handicap ?? null}
+      updatedAt={user?.handicap_updated_at ?? null}
+      actionLabel="Post match"
+      busy={sheetBusy}
+      onCancel={() => setPendingCreate(null)}
+      onConfirm={confirmIndexAndCreate}
+    />
+    </View>
   );
 }
 

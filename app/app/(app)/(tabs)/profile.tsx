@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { useApi } from '@/lib/useApi';
 import { useUserStore } from '@/store/useUserStore';
+import { indexAgeLabel } from '@/lib/format';
 import { colors, spacing, radius, typography } from '@/constants/theme';
 
 export default function ProfileScreen() {
@@ -75,9 +76,13 @@ export default function ProfileScreen() {
             placeholder="e.g. 8.4 (use + for plus, e.g. -1.2)"
             keyboardType="numbers-and-punctuation"
           />
+          {user && (
+            <Text style={styles.ageNote}>{indexAgeLabel(user.handicap, user.handicap_updated_at)}</Text>
+          )}
           <Text style={styles.note}>
             Your Handicap Index becomes the official GHIN value once GHIN
-            verification is connected. For now it's entered manually.
+            verification is connected. For now it's entered manually. You'll be
+            asked to confirm it when you post or accept a match.
           </Text>
 
           <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
@@ -123,6 +128,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md,
     fontSize: 16, color: colors.ink,
   },
+  ageNote: { ...typography.caption, color: colors.fairway },
   note: { ...typography.caption, color: colors.muted },
   saveBtn: { backgroundColor: colors.fairway, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
   saveText: { ...typography.bodySemiBold, color: colors.surface },
