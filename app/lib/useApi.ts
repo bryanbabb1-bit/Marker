@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/clerk-expo';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { apiJson } from '@/lib/api';
 import type {
   DiscoveryMatch, Match, Message, HoleEntry, RevealResponse, SubmitScoresResponse,
@@ -22,13 +22,20 @@ export interface CreateMatchInput {
 export function useApi() {
   const { getToken } = useAuth();
 
+  // Clerk recreates getToken every render; depending on it directly would make
+  // `call` (and the memoized api object) change every render, which cascades
+  // into useFocusEffect/useEffect reload loops on any screen that depends on
+  // `api`. Read it through a ref so `call` is stable. See feedback_gettoken_not_dep.
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+
   const call = useCallback(
     async <T>(path: string, options?: RequestInit): Promise<T> => {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       if (!token) throw new Error('Not signed in');
       return apiJson<T>(path, token, options);
     },
-    [getToken]
+    []
   );
 
   return useMemo(
