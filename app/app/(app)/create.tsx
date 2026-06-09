@@ -142,7 +142,7 @@ export default function CreateMatchScreen() {
         </View>
 
         <Text style={styles.note}>
-          Stakes are shown for context only — Match Play never handles money. Settle
+          Stakes are shown for context only — Quell never handles money. Settle
           up between yourselves.
         </Text>
 

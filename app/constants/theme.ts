@@ -1,4 +1,4 @@
-// Match Play design tokens. Spacing/radius/typography are fixed; COLORS are
+// Quell design tokens. Spacing/radius/typography are fixed; COLORS are
 // themeable — several palettes the user can toggle in Settings. Palettes share
 // the text/border neutrals (so type stays readable everywhere) and vary the
 // brand + background hues. The default palette equals the original look, so any

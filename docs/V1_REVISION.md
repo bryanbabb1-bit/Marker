@@ -17,7 +17,7 @@ lets the core loop ship deterministically.
 - The **hidden lock is preserved** — now a *hidden-entry* lock. Neither player
   sees the other's entered scores until BOTH have submitted. Enforced
   server-side. (§6 still applies, just to manual entries.)
-- Photo capture returns later as the **verification / anti-cheat layer** ("Marker"
+- Photo capture returns later as the **verification / anti-cheat layer** ("Quell"
   reborn) — an upgrade, not a dependency. Manual entry is trust-based, which is
   fine for the closed buddy/Prairie beta.
 - Schema impact: the `scorecards` table's photo/OCR fields (`photo_url`,

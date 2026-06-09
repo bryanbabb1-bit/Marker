@@ -1,7 +1,7 @@
-# Match Play
+# Quell
 
-Golf match discovery + scorecard-verification app for club members. Evolves the
-**Marker** scorecard-photo OCR engine into a matchmaking platform: post an open
+Golf match discovery + scorecard-verification app for club members. A matchmaking
+platform with a scorecard-photo verification layer on the roadmap: post an open
 match (stake, handicap range, course, tees, date/time), an opponent swipes to
 accept, both play independently, photograph their scorecards, and the app reads
 both cards, applies handicaps, and reveals the winner hole-by-hole.

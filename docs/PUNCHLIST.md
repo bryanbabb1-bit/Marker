@@ -6,7 +6,7 @@ Living list of deferred setup, decisions, and follow-ups. Newest concerns at top
 The backend + app are built and typecheck clean, but nothing runs end-to-end
 until a Clerk instance exists. ~3 minutes:
 
-1. dashboard.clerk.com → **Create application**, name it **Match Play**
+1. dashboard.clerk.com → **Create application**, name it **Quell**
    (a brand-new app — NOT TrueForecasting's; keep the apps un-intermixed).
 2. Enable **Email + Password** sign-in (what the sign-in screen uses).
 3. Copy from **API Keys**:
@@ -40,7 +40,7 @@ against the physical card / Prairie's site. (Seed file: `api/seeds/`.)
 ## 🟢 Deferred polish / later phases
 - Discovery **swipe-gesture deck** (currently Accept/Pass buttons — same actions).
 - Realtime messaging vendor (currently 5s polling) + push notifications.
-- Photo/OCR scorecard verification layer ("Marker" reborn) — post-MVP.
+- Photo/OCR scorecard verification layer ("Quell" reborn) — post-MVP.
 - 9-hole handicap allocation uses a documented approximation (half the 18-hole
   course-handicap difference, allocated within the nine) — revisit for exact
   WHS 9-hole course handicap if it matters in play.

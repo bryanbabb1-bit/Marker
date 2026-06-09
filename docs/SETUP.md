@@ -1,6 +1,6 @@
 # Local Setup
 
-Match Play is a monorepo: `api/` (Cloudflare Workers + D1) and `app/` (Expo).
+Quell is a monorepo: `api/` (Cloudflare Workers + D1) and `app/` (Expo).
 Both share one Clerk instance.
 
 ## 0. Prerequisites

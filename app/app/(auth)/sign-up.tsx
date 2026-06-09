@@ -222,7 +222,7 @@ export default function SignUpScreen() {
         </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
-          Match Play is a scorecard and match-discovery tool, not a wagering service. Any stakes are
+          Quell is a scorecard and match-discovery tool, not a wagering service. Any stakes are
           for display only — settle off-platform. Play by your club's rules and post honest scores.
         </Text>
       </ScrollView>

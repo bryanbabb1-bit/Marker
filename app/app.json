@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "Match Play",
-    "slug": "match-play",
+    "name": "Quell",
+    "slug": "quell",
     "version": "0.1.0",
     "orientation": "default",
-    "scheme": "matchplay",
+    "scheme": "quell",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bryanbabb.matchplay"
+      "bundleIdentifier": "com.bryanbabb.quell"
     },
     "android": {
-      "package": "com.bryanbabb.matchplay"
+      "package": "com.bryanbabb.quell"
     },
     "plugins": [
       "expo-router",

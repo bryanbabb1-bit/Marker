@@ -6,7 +6,7 @@
 
 ## 1. Project Overview
 
-Match Play is a golf match discovery and scorecard verification app for club members. It evolves the Marker scorecard photo engine into a matchmaking platform: the photo engine is the settlement layer, and a Tinder-style discovery + in-app messaging layer sits on top.
+Quell is a golf match discovery and scorecard verification app for club members. It evolves the Quell scorecard photo engine into a matchmaking platform: the photo engine is the settlement layer, and a Tinder-style discovery + in-app messaging layer sits on top.
 
 **Core thesis:** A golfer can post their name out there looking for a match — stake, handicap range, course, tees, date/time — and another member can swipe to accept. The two players do NOT need to be in the same group. They each play their round, each photograph their scorecard, and the app reads both cards, applies handicaps, and determines the winner with a hole-by-hole reveal animation.
 
@@ -37,7 +37,7 @@ This fits the side-hustle filter cleanly: Bryan is the customer, near-zero opera
 ## 4. Tech Stack
 
 ### Frontend
-- **React Native** (iOS + Android, shared logic) — reuses Marker React experience; clean path to both stores.
+- **React Native** (iOS + Android, shared logic) — reuses Quell React experience; clean path to both stores.
 - Navigation: React Navigation (or Expo Router if going Expo-managed).
 - Camera: Expo Camera / React Native Vision Camera for scorecard capture.
 - Animation: **Reanimated** for the hole-by-hole match progression reveal (de-facto RN standard for complex animation).
@@ -50,7 +50,7 @@ This fits the side-hustle filter cleanly: Bryan is the customer, near-zero opera
 - Photo storage: Firebase Storage or AWS S3.
 
 ### Photo / OCR engine
-- Client-side scorecard OCR reusing the Marker vision logic (ML Kit / TensorFlow.js).
+- Client-side scorecard OCR reusing the Quell vision logic (ML Kit / TensorFlow.js).
 - Server-side validation confirms integrity before results are computed and revealed.
 
 ### Hosting (kept lean — no prior preference to honor)

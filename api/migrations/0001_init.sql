@@ -1,4 +1,4 @@
--- 0001_init.sql — Match Play core schema (D1 / SQLite).
+-- 0001_init.sql — Quell core schema (D1 / SQLite).
 --
 -- FK enforcement is OFF by default in D1, so relationships are documented in
 -- comments and backed by indexes rather than enforced REFERENCES (this also
