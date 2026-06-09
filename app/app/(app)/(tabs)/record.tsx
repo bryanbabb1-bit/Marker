@@ -154,9 +154,9 @@ function OutcomeChip({ outcome }: { outcome: Outcome }) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const map = {
-    win: { t: 'W', bg: colors.fairway, fg: colors.surface },
-    loss: { t: 'L', bg: colors.flagRed, fg: colors.surface },
-    tie: { t: 'H', bg: colors.sand, fg: colors.ink },
+    win: { t: 'W', bg: colors.accent, fg: colors.onAccent },
+    loss: { t: 'L', bg: colors.loss, fg: colors.bg },
+    tie: { t: 'H', bg: colors.halve, fg: colors.bg },
   }[outcome];
   return <View style={[styles.chip, { backgroundColor: map.bg }]}><Text style={[styles.chipText, { color: map.fg }]}>{map.t}</Text></View>;
 }

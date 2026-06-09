@@ -6,15 +6,11 @@ export function formatHandicap(h: number | null | undefined): string {
   return h < 0 ? `+${Math.abs(h).toFixed(1)}` : h.toFixed(1);
 }
 
-// "Sat, Jun 14 · 9:30 AM" from a YYYY-MM-DD (+ optional HH:MM).
-export function formatPlayWhen(date: string, time: string | null | undefined): string {
+// "Sat, Jun 14" from a YYYY-MM-DD. Match "when" is a date only — no tee time.
+// (Second arg kept for call-site compatibility; intentionally ignored.)
+export function formatPlayWhen(date: string, _time?: string | null): string {
   const d = new Date(date + 'T00:00:00');
-  const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  if (!time) return day;
-  const [h, m] = time.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${day} · ${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 // ── Handicap-index freshness ────────────────────────────────────────────────

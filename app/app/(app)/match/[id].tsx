@@ -92,9 +92,8 @@ export default function MatchDetailScreen() {
       <Text style={styles.sub}>{match.tee_color} tees · {MATCH_TYPE_LABELS[match.match_type]}</Text>
 
       <View style={styles.card}>
-        <Row icon="calendar-outline" label="When" value={formatPlayWhen(match.play_date, match.play_time)} />
+        <Row icon="calendar-outline" label="When" value={formatPlayWhen(match.play_date)} />
         <Row icon="people-outline" label="Wants handicap" value={`${match.hcp_range_min}–${match.hcp_range_max}`} />
-        {match.stakes != null && <Row icon="cash-outline" label="Stakes (context only)" value={`$${match.stakes}`} />}
       </View>
 
       {match.opponent_id && (
@@ -102,12 +101,12 @@ export default function MatchDetailScreen() {
           <Text style={styles.cardTitle}>Players</Text>
           <Row
             icon="person-outline"
-            label={isCreator ? 'You (creator)' : 'Creator'}
+            label={`${match.creator_name ?? 'Creator'}${isCreator ? ' (You)' : ''}`}
             value={withCourseHcp(match.creator_handicap, hsetup?.creator_course_handicap)}
           />
           <Row
             icon="person-outline"
-            label={isOpponent ? 'You (opponent)' : 'Opponent'}
+            label={`${match.opponent_name ?? 'Opponent'}${isOpponent ? ' (You)' : ''}`}
             value={withCourseHcp(match.opponent_handicap, hsetup?.opponent_course_handicap)}
           />
           {hsetup?.creator_course_handicap != null && (

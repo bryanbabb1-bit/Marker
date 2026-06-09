@@ -49,8 +49,10 @@ const MUTED = '#8A94A6';
 const BORDER = '#232A33';
 const LOSS = '#FF5A5F';
 const LOSS_GLOW = 'rgba(255,90,95,0.14)';
-const HALVE = '#C2A878';
-const HALVE_GLOW = 'rgba(194,168,120,0.14)';
+// Halved-result tone reads as a light neutral/silver on the dark canvas (the
+// old tan was invisible on the reveal). Used for "All Square" text + halved pips.
+const HALVE = '#E6EAF0';
+const HALVE_GLOW = 'rgba(230,234,240,0.10)';
 
 // Build a full palette from just its accent family — the only thing that varies.
 function makePalette(accent: string, accentDark: string, accentGlow: string, onAccent: string): Palette {
@@ -88,10 +90,13 @@ export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as cons
 export const radius = { sm: 8, md: 12, lg: 20, xl: 28, pill: 999 } as const;
 
 // Font family keys — must match what `useFonts` loads in app/_layout.tsx.
+// Display = Plus Jakarta Sans (modern, premium); body + numerals = Inter
+// (tabular figures keep scorecards column-aligned).
 export const fonts = {
-  display: 'SpaceGrotesk_700Bold',
-  displaySemi: 'SpaceGrotesk_600SemiBold',
-  displayMed: 'SpaceGrotesk_500Medium',
+  displayXBold: 'PlusJakartaSans_800ExtraBold',
+  display: 'PlusJakartaSans_700Bold',
+  displaySemi: 'PlusJakartaSans_600SemiBold',
+  displayMed: 'PlusJakartaSans_500Medium',
   body: 'Inter_400Regular',
   bodyMed: 'Inter_500Medium',
   bodySemi: 'Inter_600SemiBold',
@@ -122,7 +127,7 @@ export function gradients(c: Palette) {
 // Numerals use tabular-nums so scorecards/scores stay column-aligned.
 export function makeType(c: Palette) {
   return {
-    hero:         { fontFamily: fonts.display,     fontSize: 40, lineHeight: 44, letterSpacing: -0.8, color: c.text },
+    hero:         { fontFamily: fonts.displayXBold, fontSize: 40, lineHeight: 44, letterSpacing: -0.8, color: c.text },
     title:        { fontFamily: fonts.display,     fontSize: 28, lineHeight: 34, letterSpacing: -0.5, color: c.text },
     heading:      { fontFamily: fonts.displaySemi, fontSize: 20, lineHeight: 26, letterSpacing: -0.3, color: c.text },
     subheading:   { fontFamily: fonts.bodySemi,    fontSize: 17, lineHeight: 23, color: c.text },
@@ -132,7 +137,7 @@ export function makeType(c: Palette) {
     caption:      { fontFamily: fonts.body,        fontSize: 13, lineHeight: 18, color: c.muted },
     overline:     { fontFamily: fonts.bodySemi,    fontSize: 12, lineHeight: 16, letterSpacing: 0.8, textTransform: 'uppercase' as const, color: c.muted },
     score:        { fontFamily: fonts.bodyBold,    fontSize: 22, fontVariant: ['tabular-nums'] as const, color: c.text },
-    scoreBig:     { fontFamily: fonts.display,     fontSize: 56, lineHeight: 60, letterSpacing: -1, fontVariant: ['tabular-nums'] as const, color: c.text },
+    scoreBig:     { fontFamily: fonts.displayXBold, fontSize: 56, lineHeight: 60, letterSpacing: -1, fontVariant: ['tabular-nums'] as const, color: c.text },
   };
 }
 

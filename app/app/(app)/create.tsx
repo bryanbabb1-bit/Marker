@@ -29,7 +29,6 @@ export default function CreateMatchScreen() {
   const [playDate, setPlayDate] = useState(isoToday());
   const [playTime, setPlayTime] = useState('');
   const [matchType, setMatchType] = useState<MatchType>('eighteen');
-  const [stakes, setStakes] = useState('');
   const [hcpMin, setHcpMin] = useState('');
   const [hcpMax, setHcpMax] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +57,7 @@ export default function CreateMatchScreen() {
       play_date: playDate,
       play_time: playTime.trim() || null,
       match_type: matchType,
-      stakes: stakes.trim() === '' ? null : Number(stakes),
+      stakes: null,
       hcp_range_min: min,
       hcp_range_max: max,
     };
@@ -129,8 +128,6 @@ export default function CreateMatchScreen() {
           ))}
         </View>
 
-        <Field label="Stakes (optional, display only)" value={stakes} onChangeText={setStakes} placeholder="e.g. 20" keyboardType="number-pad" />
-
         <Text style={styles.label}>Opponent handicap range</Text>
         <View style={styles.rowFields}>
           <View style={styles.flex}>
@@ -140,11 +137,6 @@ export default function CreateMatchScreen() {
             <TextInput style={styles.input} value={hcpMax} onChangeText={setHcpMax} placeholder="Max" placeholderTextColor={colors.muted} keyboardType="numbers-and-punctuation" />
           </View>
         </View>
-
-        <Text style={styles.note}>
-          Stakes are shown for context only — Quell never handles money. Settle
-          up between yourselves.
-        </Text>
 
         <TouchableOpacity style={styles.submit} onPress={submit} disabled={submitting}>
           {submitting ? <ActivityIndicator color={colors.surface} /> : <Text style={styles.submitText}>Post Match</Text>}

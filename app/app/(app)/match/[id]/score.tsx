@@ -247,9 +247,10 @@ function makeStyles(colors: Palette) {
   sub: { ...typography.caption, marginBottom: spacing.xs },
   notice: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: colors.sand, borderRadius: radius.md, padding: spacing.md,
+    backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, padding: spacing.md,
   },
-  noticeText: { ...typography.caption, color: colors.ink, flex: 1 },
+  noticeText: { ...typography.caption, color: colors.text, flex: 1 },
   strokeHint: { ...typography.caption, color: colors.muted },
   dot: { color: colors.fairway },
   card: {

@@ -27,6 +27,9 @@ export interface Match {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  // Present on the get-one (match detail) response; derived server-side.
+  creator_name?: string;
+  opponent_name?: string | null;
 }
 
 // Discovery rows join the creator's name + index onto the match.

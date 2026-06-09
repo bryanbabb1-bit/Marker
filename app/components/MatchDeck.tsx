@@ -160,9 +160,8 @@ function CardBody({ m }: { m: DiscoveryMatch }) {
       <Text style={styles.tees}>{m.tee_color} tees · {MATCH_TYPE_LABELS[m.match_type]}</Text>
 
       <View style={styles.facts}>
-        <Fact icon="calendar-outline" text={formatPlayWhen(m.play_date, m.play_time)} />
+        <Fact icon="calendar-outline" text={formatPlayWhen(m.play_date)} />
         <Fact icon="people-outline" text={`Wants handicap ${m.hcp_range_min}–${m.hcp_range_max}`} />
-        {m.stakes != null && <Fact icon="cash-outline" text={`$${m.stakes} on the line (for context)`} />}
       </View>
     </View>
   );
@@ -200,8 +199,8 @@ function makeStyles(colors: Palette) {
   },
   avatarText: { ...typography.title, fontSize: 36, color: colors.surface },
   name: { ...typography.title, fontSize: 26, textAlign: 'center' },
-  idxPill: { backgroundColor: colors.sand, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4 },
-  idxText: { ...typography.bodySemiBold, color: colors.fairway },
+  idxPill: { backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4 },
+  idxText: { ...typography.bodySemiBold, color: colors.accent },
   course: { ...typography.heading, fontSize: 20, textAlign: 'center', marginTop: spacing.md },
   tees: { ...typography.body, color: colors.muted, textAlign: 'center' },
   facts: { gap: spacing.sm, marginTop: spacing.lg, alignSelf: 'stretch', paddingHorizontal: spacing.md },

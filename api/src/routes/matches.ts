@@ -142,8 +142,15 @@ async function listMine(auth: AuthContext, env: Env): Promise<Response> {
 
 // ── Get one ──────────────────────────────────────────────────────────────────
 async function getOne(auth: AuthContext, env: Env, matchId: string): Promise<Response> {
-  const match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?')
-    .bind(matchId).first<Record<string, unknown>>();
+  const match = await env.DB.prepare(
+    `SELECT m.*,
+            cu.first_name AS creator_first_name, cu.last_name AS creator_last_name,
+            ou.first_name AS opponent_first_name, ou.last_name AS opponent_last_name
+       FROM matches m
+       JOIN users cu ON cu.id = m.creator_id
+       LEFT JOIN users ou ON ou.id = m.opponent_id
+      WHERE m.id = ?`,
+  ).bind(matchId).first<Record<string, unknown>>();
   if (!match) return error('Match not found', 404);
 
   // Visible if the caller is a participant, or it's still an open match anyone
@@ -152,6 +159,18 @@ async function getOne(auth: AuthContext, env: Env, matchId: string): Promise<Res
   if (!isParticipant && match.status !== 'open') {
     return error('Match not found', 404);
   }
+
+  // Derived display names so the client can label the Players card with real
+  // names instead of "creator/opponent".
+  const fullName = (f: unknown, l: unknown): string | null => {
+    const name = [f, l].filter((s) => typeof s === 'string' && s.trim()).join(' ').trim();
+    return name || null;
+  };
+  match.creator_name = fullName(match.creator_first_name, match.creator_last_name) ?? 'A golfer';
+  match.opponent_name = match.opponent_id
+    ? fullName(match.opponent_first_name, match.opponent_last_name) ?? 'Opponent'
+    : null;
+
   return json(match);
 }
 
