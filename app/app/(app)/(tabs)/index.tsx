@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
@@ -9,6 +9,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useColors } from '@/store/useThemeStore';
 import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
 import { MatchDeck } from '@/components/MatchDeck';
+import { DiscoveryFilters, DEFAULT_FILTERS, isFiltered, type DiscoveryFilterState } from '@/components/DiscoveryFilters';
 import { ErrorState, SkeletonCard } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
 import type { DiscoveryMatch } from '@/types';
@@ -28,11 +29,15 @@ export default function DiscoveryScreen() {
   const [showCoach, setShowCoach] = useState(false);
   const [pendingAccept, setPendingAccept] = useState<DiscoveryMatch | null>(null);
   const [sheetBusy, setSheetBusy] = useState(false);
+  const [filters, setFilters] = useState<DiscoveryFilterState>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (f?: DiscoveryFilterState) => {
     try {
       setError(null);
-      const { matches } = await api.discover();
+      const { matches } = await api.discover(f ?? filtersRef.current);
       setMatches(matches);
     } catch (e: any) {
       setError(e?.message ?? 'Could not load matches.');
@@ -42,6 +47,13 @@ export default function DiscoveryScreen() {
   }, [api]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const applyFilters = (f: DiscoveryFilterState) => {
+    setFilters(f);
+    setShowFilters(false);
+    setLoading(true);
+    load(f);
+  };
 
   const doAccept = async (m: DiscoveryMatch) => {
     try {
@@ -93,7 +105,7 @@ export default function DiscoveryScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={() => load()} />
       </SafeAreaView>
     );
   }
@@ -104,12 +116,24 @@ export default function DiscoveryScreen() {
         matches={matches}
         onAccept={requestAccept}
         onPass={() => { /* pass is local — the deck advances itself */ }}
-        onReload={load}
+        onReload={() => load()}
       />
+
+      <TouchableOpacity style={styles.filterBtn} onPress={() => { haptics.light(); setShowFilters(true); }} activeOpacity={0.85}>
+        <Ionicons name="options-outline" size={22} color={colors.text} />
+        {isFiltered(filters) && <View style={styles.filterDot} />}
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.fab} onPress={() => { haptics.light(); router.push('/(app)/create'); }} activeOpacity={0.9}>
         <Ionicons name="add" size={28} color={colors.onAccent} />
       </TouchableOpacity>
+
+      <DiscoveryFilters
+        visible={showFilters}
+        value={filters}
+        onApply={applyFilters}
+        onClose={() => setShowFilters(false)}
+      />
 
       {showCoach && matches.length > 0 && (
         <Pressable style={styles.coach} onPress={dismissCoach}>
@@ -155,6 +179,13 @@ function makeStyles(colors: Palette) {
     alignItems: 'center', justifyContent: 'center',
     ...elevation.floating,
   },
+  filterBtn: {
+    position: 'absolute', right: spacing.lg, top: spacing.md,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
+    ...elevation.card,
+  },
+  filterDot: { position: 'absolute', top: 8, right: 8, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.accent, borderWidth: 1, borderColor: colors.surface },
   coach: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   coachCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md, alignItems: 'center', alignSelf: 'stretch', ...elevation.sheet },
   coachTitle: { ...t.heading, textAlign: 'center' },

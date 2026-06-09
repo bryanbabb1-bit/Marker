@@ -29,7 +29,7 @@ export async function handleMatches(
   const action = segments[2]; // 'accept' | 'cancel' | 'decline' | undefined
 
   if (!second) {
-    if (method === 'GET') return discover(auth, env);
+    if (method === 'GET') return discover(auth, env, request);
     if (method === 'POST') return create(auth, request, env);
     return error('Method not allowed', 405);
   }
@@ -57,10 +57,18 @@ export async function handleMatches(
 // Open matches the caller could accept: not their own, upcoming, and whose
 // creator-set handicap window contains the caller's index. When the caller has
 // no handicap set yet, the range filter is skipped (onboarding will set it).
-async function discover(auth: AuthContext, env: Env): Promise<Response> {
+async function discover(auth: AuthContext, env: Env, request: Request): Promise<Response> {
   const me = await env.DB.prepare('SELECT handicap FROM users WHERE id = ?')
     .bind(auth.userId).first<{ handicap: number | null }>();
   const today = now().slice(0, 10);
+
+  // Optional search params (the Discovery filter sheet sets these):
+  //   match_type=front_nine|back_nine|eighteen   course=<substring>
+  //   all=1  → ignore the handicap-eligibility window (browse every skill level)
+  const url = new URL(request.url);
+  const qpType = url.searchParams.get('match_type');
+  const qpCourse = (url.searchParams.get('course') ?? '').trim();
+  const showAll = url.searchParams.get('all') === '1';
 
   let sql =
     `SELECT m.*, u.first_name AS creator_first_name, u.last_name AS creator_last_name,
@@ -69,9 +77,17 @@ async function discover(auth: AuthContext, env: Env): Promise<Response> {
       WHERE m.status = 'open' AND m.creator_id != ? AND m.play_date >= ?`;
   const binds: unknown[] = [auth.userId, today];
 
-  if (me?.handicap != null) {
+  if (me?.handicap != null && !showAll) {
     sql += ' AND ? BETWEEN m.hcp_range_min AND m.hcp_range_max';
     binds.push(me.handicap);
+  }
+  if (qpType && (MATCH_TYPES as readonly string[]).includes(qpType)) {
+    sql += ' AND m.match_type = ?';
+    binds.push(qpType);
+  }
+  if (qpCourse) {
+    sql += ' AND m.course_name LIKE ?';
+    binds.push(`%${qpCourse}%`);
   }
   sql += ' ORDER BY m.play_date ASC, m.created_at DESC LIMIT 100';
 

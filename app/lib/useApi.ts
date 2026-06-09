@@ -51,7 +51,14 @@ export function useApi() {
       getLeaderboard: () => call<{ entries: LeaderboardEntry[] }>('/leaderboard'),
 
       // Matches
-      discover: () => call<{ matches: DiscoveryMatch[] }>('/matches'),
+      discover: (filters?: { match_type?: string; course?: string; all?: boolean }) => {
+        const q = new URLSearchParams();
+        if (filters?.match_type && filters.match_type !== 'any') q.set('match_type', filters.match_type);
+        if (filters?.course?.trim()) q.set('course', filters.course.trim());
+        if (filters?.all) q.set('all', '1');
+        const qs = q.toString();
+        return call<{ matches: DiscoveryMatch[] }>(`/matches${qs ? `?${qs}` : ''}`);
+      },
       myMatches: () => call<{ matches: Match[] }>('/matches/mine'),
       getMatch: (id: string) => call<Match>(`/matches/${id}`),
       createMatch: (input: CreateMatchInput) =>
