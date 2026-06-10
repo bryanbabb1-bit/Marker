@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Switch } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Switch, ScrollView } from 'react-native';
 import { useColors } from '@/store/useThemeStore';
 import { Button } from '@/components/ui';
 import { CourseSelect } from '@/components/CourseSelect';
 import { haptics } from '@/lib/haptics';
 import { makeType, spacing, radius, type Palette } from '@/constants/theme';
 
-export type DiscoveryFilterState = { match_type: string; course: string; all: boolean; starred: boolean; within: string };
-export const DEFAULT_FILTERS: DiscoveryFilterState = { match_type: 'any', course: '', all: false, starred: false, within: 'any' };
+export type DiscoveryFilterState = { match_type: string; course: string; all: boolean; starred: boolean; fromDate: string; toDate: string };
+export const DEFAULT_FILTERS: DiscoveryFilterState = { match_type: 'any', course: '', all: false, starred: false, fromDate: '', toDate: '' };
 export const isFiltered = (f: DiscoveryFilterState) =>
-  f.match_type !== 'any' || f.course.trim() !== '' || f.all || f.starred || f.within !== 'any';
+  f.match_type !== 'any' || f.course.trim() !== '' || f.all || f.starred || f.fromDate !== '' || f.toDate !== '';
 
 const p2 = (n: number) => String(n).padStart(2, '0');
 const isoDate = (d: Date) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
@@ -22,13 +22,28 @@ export function localTodayISO(): string {
   return isoDate(d);
 }
 
-// Map a "When" preset to an upper-bound play date (YYYY-MM-DD), or undefined for
-// "any". Range is today → today + N days.
-export function untilForWithin(within: string): string | undefined {
-  if (!within || within === 'any') return undefined;
-  const add = within === 'today' ? 0 : within === '3d' ? 3 : within === '7d' ? 7 : within === '14d' ? 14 : 0;
-  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + add);
-  return isoDate(d);
+// Upcoming days for the date-range picker.
+type Day = { iso: string; weekday: string; day: number; month: string };
+function rangeDays(n: number): Day[] {
+  const base = new Date(); base.setHours(0, 0, 0, 0);
+  const out: Day[] = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(base); d.setDate(base.getDate() + i);
+    out.push({
+      iso: isoDate(d),
+      weekday: i === 0 ? 'Today' : i === 1 ? 'Tmrw' : d.toLocaleDateString(undefined, { weekday: 'short' }),
+      day: d.getDate(),
+      month: d.toLocaleDateString(undefined, { month: 'short' }),
+    });
+  }
+  return out;
+}
+
+const shortLabel = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function rangeSummary(from: string, to: string): string {
+  if (!from && !to) return 'Any date';
+  if (from && (!to || from === to)) return shortLabel(from);
+  return `${shortLabel(from)} – ${shortLabel(to)}`;
 }
 
 const TYPE_OPTIONS = [
@@ -36,14 +51,6 @@ const TYPE_OPTIONS = [
   { k: 'front_nine', label: 'Front 9' },
   { k: 'back_nine', label: 'Back 9' },
   { k: 'eighteen', label: '18' },
-];
-
-const WHEN_OPTIONS = [
-  { k: 'any', label: 'Any' },
-  { k: 'today', label: 'Today' },
-  { k: '3d', label: '3 days' },
-  { k: '7d', label: '1 week' },
-  { k: '14d', label: '2 weeks' },
 ];
 
 // Bottom-sheet filter for the discovery feed. Overlay pattern (not RN Modal);
@@ -57,8 +64,26 @@ export function DiscoveryFilters({ visible, value, onApply, onClose }: {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
   const [local, setLocal] = useState<DiscoveryFilterState>(value);
+  const days = useMemo(() => rangeDays(21), []);
 
   useEffect(() => { if (visible) setLocal(value); }, [visible, value]);
+
+  // Tap a day → that single date. Tap a second day → a range (earlier becomes the
+  // start). Tap the lone selected day again → clear. Matches are typically a
+  // single day, so first-tap = single-day is the common case.
+  const onDayPress = (iso: string) => {
+    haptics.select();
+    setLocal((s) => {
+      const { fromDate, toDate } = s;
+      const hasRange = !!fromDate && !!toDate && fromDate !== toDate;
+      if (!fromDate || hasRange) return { ...s, fromDate: iso, toDate: iso };
+      if (iso === fromDate) return { ...s, fromDate: '', toDate: '' };
+      if (iso > fromDate) return { ...s, toDate: iso };
+      return { ...s, fromDate: iso, toDate: fromDate };
+    });
+  };
+  const isEnd = (iso: string) => iso === local.fromDate || iso === local.toDate;
+  const inMid = (iso: string) => !!local.fromDate && !!local.toDate && iso > local.fromDate && iso < local.toDate;
 
   if (!visible) return null;
 
@@ -95,21 +120,29 @@ export function DiscoveryFilters({ visible, value, onApply, onClose }: {
             })}
           </View>
 
-          <Text style={styles.label}>When</Text>
-          <View style={styles.seg}>
-            {WHEN_OPTIONS.map((o) => {
-              const active = local.within === o.k;
+          <View style={styles.whenHead}>
+            <Text style={styles.label}>When</Text>
+            <Text style={styles.whenSummary}>{rangeSummary(local.fromDate, local.toDate)}</Text>
+            {(local.fromDate || local.toDate) ? (
+              <Pressable onPress={() => { haptics.select(); setLocal((s) => ({ ...s, fromDate: '', toDate: '' })); }} hitSlop={8}>
+                <Text style={styles.clearDates}>Clear</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow} keyboardShouldPersistTaps="handled">
+            {days.map((d) => {
+              const sel = isEnd(d.iso);
+              const mid = inMid(d.iso);
               return (
-                <Pressable
-                  key={o.k}
-                  onPress={() => { haptics.select(); setLocal((s) => ({ ...s, within: o.k })); }}
-                  style={[styles.segBtn, active && styles.segActive]}
-                >
-                  <Text style={[styles.segText, active && styles.segTextActive]}>{o.label}</Text>
+                <Pressable key={d.iso} onPress={() => onDayPress(d.iso)} style={[styles.dateChip, mid && styles.dateChipMid, sel && styles.dateChipSel]}>
+                  <Text style={[styles.dateWeekday, sel && styles.dateTextSel]}>{d.weekday}</Text>
+                  <Text style={[styles.dateDay, sel && styles.dateTextSel]}>{d.day}</Text>
+                  <Text style={[styles.dateMonth, sel && styles.dateTextSel]}>{d.month}</Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
+          <Text style={styles.whenHint}>Tap a day for that date; tap a second for a range.</Text>
 
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>
@@ -165,6 +198,18 @@ function makeStyles(c: Palette) {
     segActive: { backgroundColor: c.accentGlow, borderColor: c.accent },
     segText: { ...t.label, color: c.text },
     segTextActive: { color: c.accent },
+    whenHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+    whenSummary: { ...t.bodySemiBold, color: c.accent, flex: 1 },
+    clearDates: { ...t.caption, color: c.muted },
+    dateRow: { gap: spacing.sm, paddingVertical: spacing.xs, paddingRight: spacing.md },
+    dateChip: { width: 54, alignItems: 'center', paddingVertical: spacing.sm, gap: 1, backgroundColor: c.surfaceRaised, borderWidth: 1, borderColor: c.border, borderRadius: radius.md },
+    dateChipMid: { backgroundColor: c.accentGlow, borderColor: c.accent },
+    dateChipSel: { backgroundColor: c.accent, borderColor: c.accent },
+    dateWeekday: { ...t.caption, fontSize: 11, color: c.muted, textTransform: 'uppercase' },
+    dateDay: { ...t.heading, fontSize: 18, color: c.text },
+    dateMonth: { ...t.caption, fontSize: 11, color: c.muted },
+    dateTextSel: { color: c.onAccent },
+    whenHint: { ...t.caption, color: c.muted },
     input: {
       backgroundColor: c.surfaceRaised, borderWidth: 1, borderColor: c.border, borderRadius: radius.md,
       paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 16, color: c.text,

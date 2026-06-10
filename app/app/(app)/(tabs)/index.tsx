@@ -12,7 +12,7 @@ import { useSavedMatchesStore } from '@/store/useSavedMatchesStore';
 import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
 import { MatchDeck } from '@/components/MatchDeck';
 import { AcceptCelebration } from '@/components/AcceptCelebration';
-import { DiscoveryFilters, DEFAULT_FILTERS, isFiltered, untilForWithin, localTodayISO, type DiscoveryFilterState } from '@/components/DiscoveryFilters';
+import { DiscoveryFilters, DEFAULT_FILTERS, isFiltered, localTodayISO, type DiscoveryFilterState } from '@/components/DiscoveryFilters';
 import { ErrorState, SkeletonCard } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
 import type { DiscoveryMatch } from '@/types';
@@ -48,8 +48,9 @@ export default function DiscoveryScreen() {
     try {
       setError(null);
       const eff = f ?? filtersRef.current;
-      const until = untilForWithin(eff.within);
-      const from = localTodayISO(); // floor on the player's LOCAL today, not server UTC
+      // Date range: floor on the chosen start (or local today), ceiling on the end.
+      const from = eff.fromDate || localTodayISO();
+      const until = eff.toDate || undefined;
       // "Saved only": pull the broader feed (ignore home-course/handicap defaults)
       // then keep just the matches the player has starred locally.
       const { matches } = await api.discover(eff.starred ? { ...eff, until, from, all: true } : { ...eff, until, from });
