@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '@/lib/useApi';
 import { useColors } from '@/store/useThemeStore';
 import { useFavorites } from '@/store/useFavoritesStore';
+import { Avatar } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
 import type { Match, HolesSetup } from '@/types';
 import { MATCH_TYPE_LABELS } from '@/types';
@@ -135,37 +136,37 @@ export default function MatchDetailScreen() {
 
       <View style={styles.card}>
         <Row icon="calendar-outline" label="When" value={formatPlayWhen(match.play_date)} />
-        <Row icon="people-outline" label="Wants handicap" value={`${match.hcp_range_min}–${match.hcp_range_max}`} />
+        {match.status === 'open' && (
+          <Row icon="people-outline" label="Wants handicap" value={`${match.hcp_range_min}–${match.hcp_range_max}`} />
+        )}
       </View>
 
       {match.opponent_id && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Players</Text>
-          <Row
-            icon="person-outline"
-            label={`${match.creator_name ?? 'Creator'}${isCreator ? ' (You)' : ''}`}
-            value={withCourseHcp(match.creator_handicap, hsetup?.creator_course_handicap)}
+          <PlayerLine
+            userId={match.creator_id}
+            name={match.creator_name ?? 'Creator'}
+            you={isCreator}
+            index={match.creator_handicap}
+            ch={hsetup?.creator_course_handicap}
+            isFav={isFavorite(match.creator_id)}
+            onStar={() => toggleFav(match.creator_id, { name: match.creator_name ?? 'A golfer', handicap: match.creator_handicap })}
           />
-          <Row
-            icon="person-outline"
-            label={`${match.opponent_name ?? 'Opponent'}${isOpponent ? ' (You)' : ''}`}
-            value={withCourseHcp(match.opponent_handicap, hsetup?.opponent_course_handicap)}
+          <PlayerLine
+            userId={match.opponent_id}
+            name={match.opponent_name ?? 'Opponent'}
+            you={isOpponent}
+            index={match.opponent_handicap}
+            ch={hsetup?.opponent_course_handicap}
+            isFav={isFavorite(match.opponent_id)}
+            onStar={() => toggleFav(match.opponent_id!, { name: match.opponent_name ?? 'A golfer', handicap: match.opponent_handicap })}
           />
           {hsetup?.creator_course_handicap != null && (
             <Text style={styles.note}>
-              Index → Course Handicap for {match.tee_color} tees, {MATCH_TYPE_LABELS[match.match_type]}.
-              Strokes are given on the difference.
+              Course Handicaps for {match.tee_color} tees · {MATCH_TYPE_LABELS[match.match_type]}. Strokes given on the difference.
             </Text>
           )}
-          {otherId ? (
-            <TouchableOpacity
-              style={styles.favRow}
-              onPress={() => toggleFav(otherId, { name: otherName, handicap: isCreator ? match.opponent_handicap : match.creator_handicap })}
-            >
-              <Ionicons name={isFavorite(otherId) ? 'star' : 'star-outline'} size={18} color={isFavorite(otherId) ? colors.accent : colors.muted} />
-              <Text style={styles.favText}>{isFavorite(otherId) ? `${otherName} — common opponent` : `Star ${otherName} as a common opponent`}</Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
       )}
 
@@ -357,6 +358,30 @@ function PopsPreview({ hsetup, creatorName, opponentName }: {
   );
 }
 
+function PlayerLine({ userId, name, you, index, ch, isFav, onStar }: {
+  userId: string; name: string; you: boolean; index: number | null;
+  ch: number | null | undefined; isFav: boolean; onStar: () => void;
+}) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.playerLine}>
+      <TouchableOpacity style={styles.playerTap} activeOpacity={0.7} disabled={you} onPress={() => router.push(`/(app)/player/${userId}`)}>
+        <Avatar name={name} size={38} />
+        <View style={styles.playerMid}>
+          <Text style={styles.playerName} numberOfLines={1}>{name}{you ? ' (You)' : ''}</Text>
+          <Text style={styles.playerSub}>Index {formatHandicap(index)}{ch != null ? `  ·  CH ${ch}` : ''}</Text>
+        </View>
+      </TouchableOpacity>
+      {!you ? (
+        <TouchableOpacity hitSlop={8} onPress={() => { haptics.select(); onStar(); }}>
+          <Ionicons name={isFav ? 'star' : 'star-outline'} size={20} color={isFav ? colors.accent : colors.muted} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
 function Row({ icon, label, value }: { icon: any; label: string; value: string }) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -384,8 +409,11 @@ function makeStyles(colors: Palette) {
   rowLabel: { ...typography.body, color: colors.muted, flex: 1 },
   rowValue: { ...typography.bodySemiBold },
   note: { ...typography.caption, color: colors.muted },
-  favRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, marginTop: spacing.xs },
-  favText: { ...typography.caption, color: colors.text, flex: 1 },
+  playerLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
+  playerTap: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
+  playerMid: { flex: 1 },
+  playerName: { ...typography.bodySemiBold },
+  playerSub: { ...typography.caption, color: colors.muted },
   primaryBtn: { flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.fairway, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center' },
   primaryText: { ...typography.bodySemiBold, color: colors.surface },
   secondaryBtn: { flexDirection: 'row', gap: spacing.sm, borderWidth: 1, borderColor: colors.fairway, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center' },
