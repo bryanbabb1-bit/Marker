@@ -436,16 +436,16 @@ function finalHeadline(o: Outcome): string {
   return o === 'win' ? 'You win' : o === 'loss' ? 'You lost' : 'All Square';
 }
 function deltaColor(delta: number, c: Palette) {
-  if (delta > 0) return { color: c.accent };
+  if (delta > 0) return { color: c.win };
   if (delta < 0) return { color: c.loss };
   return { color: c.halve };
 }
 function holeOutcomeColor(h: HoleResult, mySide: 'creator' | 'opponent', c: Palette) {
   if (h.winner === 'tie') return { color: c.halve };
-  return { color: h.winner === mySide ? c.accent : c.loss };
+  return { color: h.winner === mySide ? c.win : c.loss };
 }
 function gradientFor(o: Outcome | null, c: Palette): readonly [string, string, string] {
-  if (o === 'win') return [c.accentGlow, c.bg, c.bg];
+  if (o === 'win') return [c.winGlow, c.bg, c.bg];
   if (o === 'loss') return [c.lossGlow, c.bg, c.bg];
   return [c.surface, c.bg, c.bg];
 }
@@ -465,7 +465,7 @@ function makeStyles(c: Palette) {
     rail: { gap: spacing.xs, paddingVertical: spacing.xs },
     chip: { width: 34, height: 34, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border, backgroundColor: c.surface },
     chipPending: { opacity: 0.4 },
-    chipWin: { backgroundColor: c.accent, borderColor: c.accent },
+    chipWin: { backgroundColor: c.win, borderColor: c.win },
     chipLoss: { backgroundColor: c.loss, borderColor: c.loss },
     chipHalve: { backgroundColor: c.halveGlow, borderColor: c.halve },
     chipCurrent: { transform: [{ scale: 1.15 }], borderColor: c.text },
@@ -480,10 +480,10 @@ function makeStyles(c: Palette) {
     vsCol: { width: 36, alignItems: 'center' },
     vs: { ...t.overline, color: c.muted },
     side: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: 'transparent' },
-    sideWonWrap: { borderColor: c.accent, backgroundColor: c.accentGlow },
+    sideWonWrap: { borderColor: c.win, backgroundColor: c.winGlow },
     sideLabel: { ...t.overline, color: c.muted },
     sideGross: { ...t.scoreBig, fontSize: 64, color: c.text },
-    sideWonText: { color: c.accent },
+    sideWonText: { color: c.win },
     netRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     netText: { ...t.bodySemiBold, color: c.text },
     netMuted: { ...t.caption, color: c.muted },
@@ -500,7 +500,7 @@ function makeStyles(c: Palette) {
     statCell: { flex: 1, alignItems: 'center', gap: 2 },
     statValue: { ...t.scoreBig, fontSize: 32 },
     statLabel: { ...t.overline, color: c.muted, fontSize: 11 },
-    tone_accent: { color: c.accent },
+    tone_accent: { color: c.win }, // "Won" / "Birdies+" stats — good = green
     tone_loss: { color: c.loss },
     tone_muted: { color: c.muted },
     tone_text: { color: c.text },

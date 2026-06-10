@@ -202,8 +202,8 @@ function Cell({ text, head, accent, dim, bold, label }: {
 // Circle for under par, square for over par (filled for eagle / double+).
 function markStyle(mark: Mark, c: Palette) {
   switch (mark) {
-    case 'eagle': return { borderRadius: 14, borderWidth: 2, borderColor: c.accent, backgroundColor: c.accentGlow };
-    case 'birdie': return { borderRadius: 14, borderWidth: 1.5, borderColor: c.accent };
+    case 'eagle': return { borderRadius: 14, borderWidth: 2, borderColor: c.win, backgroundColor: c.winGlow };
+    case 'birdie': return { borderRadius: 14, borderWidth: 1.5, borderColor: c.win };
     case 'bogey': return { borderRadius: 3, borderWidth: 1.5, borderColor: c.muted };
     case 'double': return { borderRadius: 3, borderWidth: 1.5, borderColor: c.loss, backgroundColor: c.lossGlow };
     default: return { borderColor: 'transparent' };
@@ -235,13 +235,13 @@ function makeStyles(c: Palette) {
     labelCell: { width: LABEL_W, alignItems: 'flex-start', paddingHorizontal: spacing.sm },
     headCell: { backgroundColor: c.surfaceRaised },
     accentCell: { backgroundColor: c.surfaceRaised },
-    cellWon: { backgroundColor: c.accentGlow },
+    cellWon: { backgroundColor: c.winGlow },
     cellText: { ...t.body, fontSize: 15, fontVariant: ['tabular-nums'] as ('tabular-nums')[], color: c.text },
     headText: { color: c.text, fontFamily: fonts.bodySemi },
     dimText: { color: c.muted, fontSize: 12 },
     boldText: { fontFamily: fonts.bodySemi },
     labelText: { fontSize: 13 },
-    cellTextWon: { color: c.accent, fontFamily: fonts.bodyBold },
+    cellTextWon: { color: c.win, fontFamily: fonts.bodyBold },
     strokeDot: { position: 'absolute', top: 4, right: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: c.accent },
     legend: { ...t.caption, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
     errText: { ...t.body, color: c.muted },

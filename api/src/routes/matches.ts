@@ -74,6 +74,10 @@ async function discover(auth: AuthContext, env: Env, request: Request): Promise<
   const qpType = url.searchParams.get('match_type');
   const qpCourse = (url.searchParams.get('course') ?? '').trim();
   const showAll = url.searchParams.get('all') === '1';
+  // Optional upper bound on the play date (the "When" filter range, e.g. only
+  // matches in the next 7 days). Must be a YYYY-MM-DD string.
+  const qpUntil = url.searchParams.get('until');
+  const untilDate = qpUntil && /^\d{4}-\d{2}-\d{2}$/.test(qpUntil) ? qpUntil : null;
 
   let sql =
     `SELECT m.*, u.first_name AS creator_first_name, u.last_name AS creator_last_name,
@@ -89,6 +93,10 @@ async function discover(auth: AuthContext, env: Env, request: Request): Promise<
   if (qpType && (MATCH_TYPES as readonly string[]).includes(qpType)) {
     sql += ' AND m.match_type = ?';
     binds.push(qpType);
+  }
+  if (untilDate) {
+    sql += ' AND m.play_date <= ?';
+    binds.push(untilDate);
   }
   // Course: an explicit search wins; otherwise default to the home course
   // (unless the user asked to browse everything).

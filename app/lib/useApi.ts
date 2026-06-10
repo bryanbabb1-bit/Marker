@@ -81,11 +81,12 @@ export function useApi() {
         call<{ entries: LeaderboardEntry[] }>(`/leaderboard${course ? `?course=${encodeURIComponent(course)}` : ''}`),
 
       // Matches
-      discover: (filters?: { match_type?: string; course?: string; all?: boolean }) => {
+      discover: (filters?: { match_type?: string; course?: string; all?: boolean; until?: string }) => {
         const q = new URLSearchParams();
         if (filters?.match_type && filters.match_type !== 'any') q.set('match_type', filters.match_type);
         if (filters?.course?.trim()) q.set('course', filters.course.trim());
         if (filters?.all) q.set('all', '1');
+        if (filters?.until) q.set('until', filters.until);
         const qs = q.toString();
         return call<{ matches: DiscoveryMatch[] }>(`/matches${qs ? `?${qs}` : ''}`);
       },

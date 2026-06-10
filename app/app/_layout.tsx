@@ -23,7 +23,7 @@ import {
 import { tokenCache } from '@/lib/tokenCache';
 import { setTokenRefresher, apiJson } from '@/lib/api';
 import { useUserStore } from '@/store/useUserStore';
-import { useThemeStore } from '@/store/useThemeStore';
+import { useThemeStore, useColors } from '@/store/useThemeStore';
 import { configureNotifications, registerForPush } from '@/lib/notifications';
 import { colors } from '@/constants/theme';
 
@@ -102,6 +102,7 @@ function AuthGate() {
 export default function RootLayout() {
   const hydrateTheme = useThemeStore((s) => s.hydrate);
   const hydrated = useThemeStore((s) => s.hydrated);
+  const active = useColors();
   useEffect(() => { hydrateTheme(); }, [hydrateTheme]);
 
   const [fontsLoaded, fontError] = useFonts({
@@ -149,11 +150,11 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: active.bg }}>
       <SafeAreaProvider>
         <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-          <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <StatusBar style={active.scheme === 'light' ? 'dark' : 'light'} />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: active.bg } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(app)" />

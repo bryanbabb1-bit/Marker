@@ -6,16 +6,34 @@ import { CourseSelect } from '@/components/CourseSelect';
 import { haptics } from '@/lib/haptics';
 import { makeType, spacing, radius, type Palette } from '@/constants/theme';
 
-export type DiscoveryFilterState = { match_type: string; course: string; all: boolean; starred: boolean };
-export const DEFAULT_FILTERS: DiscoveryFilterState = { match_type: 'any', course: '', all: false, starred: false };
+export type DiscoveryFilterState = { match_type: string; course: string; all: boolean; starred: boolean; within: string };
+export const DEFAULT_FILTERS: DiscoveryFilterState = { match_type: 'any', course: '', all: false, starred: false, within: 'any' };
 export const isFiltered = (f: DiscoveryFilterState) =>
-  f.match_type !== 'any' || f.course.trim() !== '' || f.all || f.starred;
+  f.match_type !== 'any' || f.course.trim() !== '' || f.all || f.starred || f.within !== 'any';
+
+// Map a "When" preset to an upper-bound play date (YYYY-MM-DD), or undefined for
+// "any". Range is today → today + N days.
+export function untilForWithin(within: string): string | undefined {
+  if (!within || within === 'any') return undefined;
+  const add = within === 'today' ? 0 : within === '3d' ? 3 : within === '7d' ? 7 : within === '14d' ? 14 : 0;
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + add);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 const TYPE_OPTIONS = [
   { k: 'any', label: 'Any' },
   { k: 'front_nine', label: 'Front 9' },
   { k: 'back_nine', label: 'Back 9' },
   { k: 'eighteen', label: '18' },
+];
+
+const WHEN_OPTIONS = [
+  { k: 'any', label: 'Any' },
+  { k: 'today', label: 'Today' },
+  { k: '3d', label: '3 days' },
+  { k: '7d', label: '1 week' },
+  { k: '14d', label: '2 weeks' },
 ];
 
 // Bottom-sheet filter for the discovery feed. Overlay pattern (not RN Modal);
@@ -59,6 +77,22 @@ export function DiscoveryFilters({ visible, value, onApply, onClose }: {
                 <Pressable
                   key={o.k}
                   onPress={() => { haptics.select(); setLocal((s) => ({ ...s, match_type: o.k })); }}
+                  style={[styles.segBtn, active && styles.segActive]}
+                >
+                  <Text style={[styles.segText, active && styles.segTextActive]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.label}>When</Text>
+          <View style={styles.seg}>
+            {WHEN_OPTIONS.map((o) => {
+              const active = local.within === o.k;
+              return (
+                <Pressable
+                  key={o.k}
+                  onPress={() => { haptics.select(); setLocal((s) => ({ ...s, within: o.k })); }}
                   style={[styles.segBtn, active && styles.segActive]}
                 >
                   <Text style={[styles.segText, active && styles.segTextActive]}>{o.label}</Text>

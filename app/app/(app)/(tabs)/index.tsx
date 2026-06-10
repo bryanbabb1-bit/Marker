@@ -12,7 +12,7 @@ import { useSavedMatchesStore } from '@/store/useSavedMatchesStore';
 import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
 import { MatchDeck } from '@/components/MatchDeck';
 import { AcceptCelebration } from '@/components/AcceptCelebration';
-import { DiscoveryFilters, DEFAULT_FILTERS, isFiltered, type DiscoveryFilterState } from '@/components/DiscoveryFilters';
+import { DiscoveryFilters, DEFAULT_FILTERS, isFiltered, untilForWithin, type DiscoveryFilterState } from '@/components/DiscoveryFilters';
 import { ErrorState, SkeletonCard } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
 import type { DiscoveryMatch } from '@/types';
@@ -48,9 +48,10 @@ export default function DiscoveryScreen() {
     try {
       setError(null);
       const eff = f ?? filtersRef.current;
+      const until = untilForWithin(eff.within);
       // "Saved only": pull the broader feed (ignore home-course/handicap defaults)
       // then keep just the matches the player has starred locally.
-      const { matches } = await api.discover(eff.starred ? { ...eff, all: true } : eff);
+      const { matches } = await api.discover(eff.starred ? { ...eff, until, all: true } : { ...eff, until });
       setMatches(eff.starred ? matches.filter((m) => savedRef.current.includes(m.id)) : matches);
     } catch (e: any) {
       setError(e?.message ?? 'Could not load matches.');
