@@ -154,7 +154,7 @@ export default function RevealScreen() {
     const phrase = outcome === 'win' ? `beat ${theirName} ${p.final_delta}`
       : outcome === 'loss' ? `lost to ${theirName} ${p.final_delta}`
       : `halved my match with ${theirName}`;
-    try { await Share.share({ message: `I ${phrase} at ${data!.match.course_name} ⛳ — Quell` }); } catch { /* dismissed */ }
+    try { await Share.share({ message: `I ${phrase} at ${data!.match.course_name} — Quell` }); } catch { /* dismissed */ }
   };
 
   // ── Loading / locked / no-course states ─────────────────────────────────────

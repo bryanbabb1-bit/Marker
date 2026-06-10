@@ -132,10 +132,11 @@ export default function MatchDetailScreen() {
         <Text style={styles.course}>{match.course_name}</Text>
         <View style={styles.badge}><Text style={styles.badgeText}>{STATUS_LABELS[match.status]}</Text></View>
       </View>
-      <Text style={styles.sub}>{match.tee_color} tees · {MATCH_TYPE_LABELS[match.match_type]}</Text>
+      <Text style={styles.sub}>{MATCH_TYPE_LABELS[match.match_type]}</Text>
 
       <View style={styles.card}>
         <Row icon="calendar-outline" label="When" value={formatPlayWhen(match.play_date)} />
+        <Row icon="golf-outline" label="Tees" value={match.tee_color} />
         {match.status === 'open' && (
           <Row icon="people-outline" label="Wants handicap" value={`${match.hcp_range_min}–${match.hcp_range_max}`} />
         )}
@@ -162,11 +163,6 @@ export default function MatchDetailScreen() {
             isFav={isFavorite(match.opponent_id)}
             onStar={() => toggleFav(match.opponent_id!, { name: match.opponent_name ?? 'A golfer', handicap: match.opponent_handicap })}
           />
-          {hsetup?.creator_course_handicap != null && (
-            <Text style={styles.note}>
-              Course Handicaps for {match.tee_color} tees · {MATCH_TYPE_LABELS[match.match_type]}. Strokes given on the difference.
-            </Text>
-          )}
         </View>
       )}
 
@@ -302,8 +298,8 @@ function PopsPreview({ hsetup, creatorName, opponentName }: {
   if (cSum === 0 && oSum === 0) {
     return (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Pops — where strokes fall</Text>
-        <Text style={styles.note}>Even match — neither player gets a stroke.</Text>
+        <Text style={styles.cardTitle}>Strokes</Text>
+        <Text style={styles.note}>Even match — no strokes given.</Text>
       </View>
     );
   }
@@ -322,8 +318,7 @@ function PopsPreview({ hsetup, creatorName, opponentName }: {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Pops — where strokes fall</Text>
-      <Text style={styles.note}>● = a stroke received on that hole, given on the hardest holes by stroke index.</Text>
+      <Text style={styles.cardTitle}>Strokes</Text>
 
       <View style={styles.popWrap}>
         {/* Frozen name column */}

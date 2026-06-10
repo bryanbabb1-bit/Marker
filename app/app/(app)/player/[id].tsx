@@ -45,7 +45,12 @@ export default function PlayerScreen() {
           <View style={styles.headerMid}>
             <Text style={styles.name}>{p.name}{p.is_me ? ' (You)' : ''}</Text>
             <Text style={styles.sub}>Index {formatHandicap(p.handicap)}</Text>
-            {p.home_course ? <Text style={styles.sub}>🏌  {p.home_course}</Text> : null}
+            {p.home_course ? (
+              <View style={styles.homeRow}>
+                <Ionicons name="golf-outline" size={14} color={c.muted} />
+                <Text style={styles.sub}>{p.home_course}</Text>
+              </View>
+            ) : null}
           </View>
           {!p.is_me ? (
             <Pressable hitSlop={10} onPress={() => { haptics.select(); toggleFav(p.user_id, { name: p.name, handicap: p.handicap }); }}>
@@ -110,6 +115,7 @@ function makeStyles(c: Palette) {
     headerMid: { flex: 1, gap: 2 },
     name: { ...t.title, fontSize: 24 },
     sub: { ...t.body, color: c.muted },
+    homeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     statsCard: { backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
     cardTitle: { ...t.overline, color: c.muted },
     statRow: { flexDirection: 'row', justifyContent: 'space-between' },

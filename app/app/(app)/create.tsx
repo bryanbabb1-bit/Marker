@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Alert,
@@ -9,9 +9,9 @@ import { useUserStore } from '@/store/useUserStore';
 import { useColors } from '@/store/useThemeStore';
 import { haptics } from '@/lib/haptics';
 import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
-import { CoursePicker, type CourseSelection } from '@/components/CoursePicker';
+import { CourseSelect } from '@/components/CourseSelect';
 import { Ionicons } from '@expo/vector-icons';
-import type { MatchType } from '@/types';
+import type { MatchType, CourseSummary, TeeSummary } from '@/types';
 import { MATCH_TYPE_LABELS } from '@/types';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
 import { isIndexStale } from '@/lib/format';
@@ -48,8 +48,8 @@ export default function CreateMatchScreen() {
   const [courseName, setCourseName] = useState('');
   const [teeColor, setTeeColor] = useState('');
   const [teeId, setTeeId] = useState<string | null>(null);
+  const [courseTees, setCourseTees] = useState<TeeSummary[]>([]);
   const [mode, setMode] = useState<'catalog' | 'custom'>('catalog');
-  const [showCourse, setShowCourse] = useState(false);
   const [playDate, setPlayDate] = useState(isoToday());
   const days = useMemo(() => nextDays(14), []);
   const [matchType, setMatchType] = useState<MatchType>('eighteen');
@@ -60,12 +60,26 @@ export default function CreateMatchScreen() {
   const [pendingCreate, setPendingCreate] = useState<CreateMatchInput | null>(null);
   const [sheetBusy, setSheetBusy] = useState(false);
 
-  const selectCourse = (sel: CourseSelection) => {
-    setCourseName(sel.course_name);
-    setTeeColor(sel.tee_color);
-    setTeeId(sel.tee_id);
-    setShowCourse(false);
-  };
+  // Picking a course loads its tees (default to the first). Course = type-ahead.
+  const onSelectCourse = useCallback(async (course: CourseSummary | null) => {
+    setTeeId(null); setTeeColor(''); setCourseTees([]);
+    if (!course) { setCourseName(''); return; }
+    setCourseName(course.name);
+    try {
+      const r = await api.getCourse(course.id);
+      setCourseTees(r.tees);
+      if (r.tees.length) { setTeeId(r.tees[0].id); setTeeColor(r.tees[0].name); }
+    } catch { /* keep course name; user can switch to custom */ }
+  }, [api]);
+
+  // Default the course to the player's home course (once, unless challenging).
+  const didDefault = useRef(false);
+  useEffect(() => {
+    if (didDefault.current || !user) return;
+    didDefault.current = true;
+    const hid = user.home_course_id;
+    if (hid) api.getCourses().then((r) => { const c = r.courses.find((x) => x.id === hid); if (c) onSelectCourse(c); }).catch(() => {});
+  }, [user, api, onSelectCourse]);
 
   // Validate the form and return the create payload, or null (after alerting).
   const buildPayload = (): CreateMatchInput | null => {
@@ -167,22 +181,34 @@ export default function CreateMatchScreen() {
         </View>
 
         {mode === 'catalog' ? (
-          <View style={styles.field}>
-            <Text style={styles.label}>Course & tees</Text>
-            <TouchableOpacity style={styles.coursePick} onPress={() => setShowCourse(true)}>
-              <View style={{ flex: 1 }}>
-                {teeId ? (
-                  <>
-                    <Text style={styles.coursePicked}>{courseName}</Text>
-                    <Text style={styles.courseSub}>{teeColor} tees</Text>
-                  </>
-                ) : (
-                  <Text style={styles.coursePlaceholder}>Choose a course…</Text>
-                )}
+          <>
+            <CourseSelect
+              label="Course"
+              valueName={courseName || null}
+              onSelect={onSelectCourse}
+              placeholder="Search your course…"
+            />
+            {courseTees.length > 0 ? (
+              <View style={styles.field}>
+                <Text style={styles.label}>Tees</Text>
+                <View style={styles.teeWrap}>
+                  {courseTees.map((t) => {
+                    const active = teeId === t.id;
+                    return (
+                      <TouchableOpacity
+                        key={t.id}
+                        style={[styles.teeBtn, active && styles.teeBtnActive]}
+                        onPress={() => { haptics.select(); setTeeId(t.id); setTeeColor(t.name); }}
+                      >
+                        <Text style={[styles.teeName, active && styles.teeNameActive]}>{t.name}</Text>
+                        <Text style={styles.teeSub}>{t.course_rating ?? '—'} / {t.slope_rating ?? '—'}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-            </TouchableOpacity>
-          </View>
+            ) : null}
+          </>
         ) : (
           <>
             <Field label="Course" value={courseName} onChangeText={setCourseName} placeholder="Prairie Highlands" />
@@ -244,8 +270,6 @@ export default function CreateMatchScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-    <CoursePicker visible={showCourse} onClose={() => setShowCourse(false)} onSelect={selectCourse} />
-
     <ConfirmIndexSheet
       visible={!!pendingCreate}
       handicap={user?.handicap ?? null}
@@ -304,10 +328,12 @@ function makeStyles(colors: Palette) {
   modeActive: { backgroundColor: colors.accentGlow, borderColor: colors.accent },
   modeText: { ...typography.bodySemiBold, color: colors.ink },
   modeTextActive: { color: colors.accent },
-  coursePick: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
-  coursePicked: { ...typography.bodySemiBold, color: colors.ink },
-  courseSub: { ...typography.caption, color: colors.muted },
-  coursePlaceholder: { ...typography.body, color: colors.muted },
+  teeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  teeBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', minWidth: 78 },
+  teeBtnActive: { backgroundColor: colors.accentGlow, borderColor: colors.accent },
+  teeName: { ...typography.bodySemiBold, color: colors.ink },
+  teeNameActive: { color: colors.accent },
+  teeSub: { ...typography.caption, color: colors.muted, fontSize: 11 },
   input: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md,
