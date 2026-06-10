@@ -137,6 +137,18 @@ export default function MatchDetailScreen() {
       </View>
       <Text style={styles.sub}>{MATCH_TYPE_LABELS[match.match_type]}</Text>
 
+      {isParticipant && match.opponent_id && (match.status === 'accepted' || match.status === 'in_progress' || match.status === 'completed') && (
+        <View style={styles.actionRow}>
+          <IconAction icon="chatbubble-outline" label="Message" onPress={() => router.push(`/(app)/match/${match.id}/messages`)} />
+          {match.status === 'completed' && otherId ? (
+            <IconAction icon="flash-outline" label="Challenge" onPress={challenge} />
+          ) : null}
+          {match.status === 'completed' ? (
+            <IconAction icon="refresh" label="Rematch" disabled={reposting} onPress={rematch} />
+          ) : null}
+        </View>
+      )}
+
       <View style={styles.card}>
         <Row icon="calendar-outline" label="When" value={formatPlayWhen(match.play_date)} />
         <Row icon="golf-outline" label="Tees" value={match.tee_color} />
@@ -257,25 +269,6 @@ export default function MatchDetailScreen() {
       )}
 
       <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-        {isParticipant && match.opponent_id &&
-          (match.status === 'accepted' || match.status === 'in_progress' || match.status === 'completed') && (
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/messages`)}>
-            <Ionicons name="chatbubble-outline" size={18} color={colors.onAccent} />
-            <Text style={styles.primaryText}>Message {(isCreator ? match.opponent_name : match.creator_name) ?? (isCreator ? 'opponent' : 'creator')}</Text>
-          </TouchableOpacity>
-        )}
-        {isParticipant && match.status === 'completed' && (
-          <TouchableOpacity style={styles.secondaryBtn} disabled={reposting} onPress={rematch}>
-            <Ionicons name="refresh" size={18} color={colors.fairway} />
-            <Text style={styles.secondaryText}>{reposting ? 'Posting…' : 'Rematch'}</Text>
-          </TouchableOpacity>
-        )}
-        {isParticipant && otherId && match.status === 'completed' && (
-          <TouchableOpacity style={styles.secondaryBtn} onPress={challenge}>
-            <Ionicons name="flash-outline" size={18} color={colors.fairway} />
-            <Text style={styles.secondaryText}>Challenge {otherName}</Text>
-          </TouchableOpacity>
-        )}
         {isCreator && (match.status === 'open' || match.status === 'accepted') && (
           <TouchableOpacity style={styles.dangerBtn} disabled={acting} onPress={() => act(() => api.cancelMatch(match.id), 'Cancel match')}>
             <Text style={styles.dangerText}>Cancel match</Text>
@@ -370,6 +363,19 @@ function PopsPreview({ hsetup, creatorName, opponentName }: {
   );
 }
 
+function IconAction({ icon, label, onPress, disabled }: {
+  icon: any; label: string; onPress: () => void; disabled?: boolean;
+}) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <TouchableOpacity style={styles.iconAction} onPress={onPress} disabled={disabled} activeOpacity={0.8}>
+      <View style={styles.iconCircle}><Ionicons name={icon} size={22} color={colors.accent} /></View>
+      <Text style={styles.iconLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function PlayerLine({ userId, name, you, index, ch, isFav, onStar }: {
   userId: string; name: string; you: boolean; index: number | null;
   ch: number | null | undefined; isFav: boolean; onStar: () => void;
@@ -421,6 +427,10 @@ function makeStyles(colors: Palette) {
   rowLabel: { ...typography.body, color: colors.muted, flex: 1 },
   rowValue: { ...typography.bodySemiBold },
   note: { ...typography.caption, color: colors.muted },
+  actionRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.xs },
+  iconAction: { alignItems: 'center', gap: spacing.xs },
+  iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  iconLabel: { ...typography.caption, color: colors.muted, fontSize: 11 },
   playerLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
   playerTap: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
   playerMid: { flex: 1 },
