@@ -34,7 +34,10 @@ export interface Match {
   opponent_id: string | null;
   status: MatchStatus;
   course_name: string;
-  tee_color: string;
+  tee_color: string;        // the CREATOR's tee
+  tee_id?: string | null;
+  opponent_tee_color?: string | null; // the OPPONENT's tee (may differ)
+  opponent_tee_id?: string | null;
   play_date: string;        // YYYY-MM-DD
   play_time: string | null; // HH:MM
   match_type: MatchType;

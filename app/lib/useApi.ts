@@ -95,6 +95,10 @@ export function useApi() {
         call<Match>('/matches', { method: 'POST', body: JSON.stringify(input) }),
       acceptMatch: (id: string) =>
         call<Match>(`/matches/${id}/accept`, { method: 'POST' }),
+      getMatchTees: (id: string) =>
+        call<{ tees: TeeSummary[] }>(`/matches/${id}/tees`),
+      setMatchTee: (id: string, tee_id: string) =>
+        call<Match>(`/matches/${id}/tee`, { method: 'POST', body: JSON.stringify({ tee_id }) }),
       cancelMatch: (id: string) =>
         call<Match>(`/matches/${id}/cancel`, { method: 'POST' }),
       declineMatch: (id: string) =>

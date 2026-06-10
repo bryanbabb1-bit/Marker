@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Modal,
 } from 'react-native';
 import { useLocalSearchParams, useFocusEffect, router } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -10,7 +10,7 @@ import { useColors } from '@/store/useThemeStore';
 import { useFavorites } from '@/store/useFavoritesStore';
 import { Avatar } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
-import type { Match, HolesSetup } from '@/types';
+import type { Match, HolesSetup, TeeSummary } from '@/types';
 import { MATCH_TYPE_LABELS } from '@/types';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
 import { formatHandicap, formatPlayWhen, STATUS_LABELS } from '@/lib/format';
@@ -27,6 +27,9 @@ export default function MatchDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [reposting, setReposting] = useState(false);
+  const [teeModal, setTeeModal] = useState(false);
+  const [courseTees, setCourseTees] = useState<TeeSummary[] | null>(null);
+  const [teeBusy, setTeeBusy] = useState(false);
   const { isFavorite, toggle: toggleFav, load: loadFavs } = useFavorites();
   useEffect(() => { loadFavs(); }, [loadFavs]);
 
@@ -87,6 +90,29 @@ export default function MatchDetailScreen() {
     finally { setActing(false); }
   };
 
+  const openTeePicker = async () => {
+    haptics.light();
+    setTeeModal(true);
+    if (!courseTees) {
+      try { const r = await api.getMatchTees(id!); setCourseTees(r.tees); }
+      catch { setCourseTees([]); }
+    }
+  };
+  const chooseTee = async (teeId: string) => {
+    setTeeBusy(true);
+    try {
+      setMatch(await api.setMatchTee(id!, teeId));
+      haptics.success();
+      setTeeModal(false);
+      // Strokes depend on the tee — refresh the handicap/strokes preview.
+      api.getMatchHoles(id!).then(setHsetup).catch(() => {});
+    } catch (e: any) {
+      Alert.alert('Could not change tees', e?.message ?? 'Try again.');
+    } finally {
+      setTeeBusy(false);
+    }
+  };
+
   const act = async (fn: () => Promise<Match>, confirmLabel: string) => {
     Alert.alert(confirmLabel, 'Are you sure?', [
       { text: 'No', style: 'cancel' },
@@ -129,6 +155,17 @@ export default function MatchDetailScreen() {
   const isForfeit = match.status === 'completed' && (!match.creator_scorecard_id || !match.opponent_scorecard_id);
   const iWon = (match.result === 'creator_wins' && isCreator) || (match.result === 'opponent_wins' && isOpponent);
 
+  // Per-player tees. The creator's is tee_color; the opponent's is
+  // opponent_tee_color (defaults to the creator's at accept, switchable before
+  // scoring). Show both only when they actually differ.
+  const firstName = (n?: string | null) => ((n ?? '').trim().split(/\s+/)[0] || 'Player');
+  const oppTee = match.opponent_tee_color ?? match.tee_color;
+  const differentTees = !!match.opponent_id && oppTee !== match.tee_color;
+  const myTee = isCreator ? match.tee_color : oppTee;
+  const canChangeTee =
+    isParticipant && !!match.opponent_id &&
+    (match.status === 'accepted' || match.status === 'in_progress') && !mySubmitted;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.headerRow}>
@@ -149,9 +186,22 @@ export default function MatchDetailScreen() {
       <View style={styles.card}>
         <Row icon="flag-outline" label="Format" value={MATCH_TYPE_LABELS[match.match_type]} />
         <Row icon="calendar-outline" label="When" value={formatPlayWhen(match.play_date)} />
-        <Row icon="golf-outline" label="Tees" value={match.tee_color} />
+        {differentTees ? (
+          <>
+            <Row icon="golf-outline" label={`${firstName(match.creator_name)} tees`} value={match.tee_color} />
+            <Row icon="golf-outline" label={`${firstName(match.opponent_name)} tees`} value={oppTee} />
+          </>
+        ) : (
+          <Row icon="golf-outline" label="Tees" value={match.tee_color} />
+        )}
         {match.status === 'open' && (
           <Row icon="people-outline" label="Wants handicap" value={`${match.hcp_range_min}–${match.hcp_range_max}`} />
+        )}
+        {canChangeTee && (
+          <TouchableOpacity style={styles.teeChange} onPress={openTeePicker} activeOpacity={0.7}>
+            <Ionicons name="swap-horizontal" size={16} color={colors.accent} />
+            <Text style={styles.teeChangeText}>Change your tees{myTee ? ` · now ${myTee}` : ''}</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -278,6 +328,36 @@ export default function MatchDetailScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      <Modal visible={teeModal} transparent animationType="slide" onRequestClose={() => setTeeModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Choose your tees</Text>
+            <Text style={styles.note}>You and your opponent can play different tees — each plays to their own course handicap.</Text>
+            {courseTees === null ? (
+              <ActivityIndicator color={colors.fairway} style={{ paddingVertical: spacing.lg }} />
+            ) : courseTees.length === 0 ? (
+              <Text style={styles.note}>No tees available for this course.</Text>
+            ) : (
+              courseTees.map((t) => {
+                const active = (isCreator ? match.tee_id : match.opponent_tee_id) === t.id;
+                return (
+                  <TouchableOpacity key={t.id} style={[styles.teeOption, active && styles.teeOptionActive]} disabled={teeBusy} onPress={() => chooseTee(t.id)} activeOpacity={0.8}>
+                    <View style={styles.flex1}>
+                      <Text style={styles.teeOptionName}>{t.name}</Text>
+                      <Text style={styles.note}>{t.course_rating ?? '—'} / {t.slope_rating ?? '—'} · Par {t.par ?? '—'}</Text>
+                    </View>
+                    {active && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => setTeeModal(false)} disabled={teeBusy}>
+              <Text style={styles.secondaryText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -444,6 +524,16 @@ function makeStyles(colors: Palette) {
   dangerText: { ...typography.bodySemiBold, color: colors.flagRed },
   errText: { ...typography.body, color: colors.muted },
   link: { ...typography.bodySemiBold, color: colors.fairway },
+  flex1: { flex: 1 },
+  // Per-player tees
+  teeChange: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xs },
+  teeChangeText: { ...typography.caption, color: colors.accent, fontWeight: '600' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, gap: spacing.sm },
+  modalTitle: { ...typography.bodySemiBold, fontSize: 18 },
+  teeOption: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, backgroundColor: colors.surface },
+  teeOptionActive: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  teeOptionName: { ...typography.bodySemiBold },
   // Pops preview grid
   popWrap: { flexDirection: 'row', marginTop: spacing.xs },
   popRow: { flexDirection: 'row', height: POP_ROW_H, alignItems: 'center' },

@@ -89,19 +89,29 @@ function deltaLabel(delta: number): string {
 // strokes; negative → the opponent gets strokes. The caller computes it from
 // course handicaps (and scales it for a 9-hole match — see callers).
 //
-// Gross arrays must align positionally to `holes`.
+// `holes` is the creator's tee. `opponentHoles` is the opponent's tee — pass it
+// when the two players play DIFFERENT tees, so each side's handicap strokes
+// allocate on their OWN tee's stroke index (the holes are the same physical
+// holes, in the same order, so par-per-hole never enters the net-vs-net result —
+// only the stroke index, which can differ by tee). Omit it and both share
+// `holes`. Gross arrays must align positionally to their player's holes.
 export function computeMatch(
   holes: HoleSpec[],
   creatorGross: number[],
   opponentGross: number[],
-  strokeDifference: number
+  strokeDifference: number,
+  opponentHoles: HoleSpec[] = holes
 ): MatchResult {
-  if (creatorGross.length !== holes.length || opponentGross.length !== holes.length) {
+  if (
+    creatorGross.length !== holes.length ||
+    opponentGross.length !== opponentHoles.length ||
+    holes.length !== opponentHoles.length
+  ) {
     throw new Error('Score arrays must align to holes');
   }
 
   const creatorStrokes = strokeDifference > 0 ? allocateStrokes(strokeDifference, holes) : holes.map(() => 0);
-  const opponentStrokes = strokeDifference < 0 ? allocateStrokes(-strokeDifference, holes) : holes.map(() => 0);
+  const opponentStrokes = strokeDifference < 0 ? allocateStrokes(-strokeDifference, opponentHoles) : opponentHoles.map(() => 0);
 
   const total = holes.length;
   let delta = 0;            // creator holes-up

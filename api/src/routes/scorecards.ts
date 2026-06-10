@@ -152,7 +152,31 @@ async function currentCardId(env: Env, matchId: string, playerId: string): Promi
   return row!.id;
 }
 
+// Load a tee row + its hole specs for the holes a match is played over.
+async function loadTee(env: Env, teeId: string, range: { min: number; max: number }) {
+  const [tee, holeRows] = await Promise.all([
+    env.DB.prepare('SELECT * FROM tees WHERE id = ?').bind(teeId).first<any>(),
+    env.DB.prepare(
+      'SELECT hole_number, par, stroke_index FROM holes WHERE tee_id = ? AND hole_number BETWEEN ? AND ? ORDER BY hole_number'
+    ).bind(teeId, range.min, range.max).all<any>(),
+  ]);
+  if (!tee || !holeRows?.results?.length) return null;
+  const holes: HoleSpec[] = holeRows.results.map((h: any) => ({
+    hole: h.hole_number, par: h.par, stroke_index: h.stroke_index,
+  }));
+  return { tee, holes };
+}
+
+// Gross scores aligned to a given set of holes (by hole number).
+function grossFor(holes: HoleSpec[], json: string): number[] {
+  const map = new Map<number, number>();
+  for (const e of JSON.parse(json) as { hole: number; gross: number }[]) map.set(e.hole, e.gross);
+  return holes.map((h) => map.get(h.hole) ?? 0);
+}
+
 // Run the determination engine and write result + progression onto the match.
+// Each player's course handicap + stroke allocation come from THEIR OWN tee
+// (they may play different tees — opponent_tee_id), per WHS.
 async function settle(env: Env, match: Record<string, any>): Promise<void> {
   if (!match.tee_id) {
     // No course linked → can't auto-compute. Leave the cards in place; reveal
@@ -160,31 +184,26 @@ async function settle(env: Env, match: Record<string, any>): Promise<void> {
     return;
   }
   const range = holeRange(match.match_type);
-  const [tee, holeRows, creatorCard, opponentCard] = await Promise.all([
-    env.DB.prepare('SELECT * FROM tees WHERE id = ?').bind(match.tee_id).first<any>(),
-    env.DB.prepare(
-      'SELECT hole_number, par, stroke_index FROM holes WHERE tee_id = ? AND hole_number BETWEEN ? AND ? ORDER BY hole_number'
-    ).bind(match.tee_id, range.min, range.max).all<any>(),
+  const opponentTeeId = match.opponent_tee_id ?? match.tee_id;
+  const [creatorTee, opponentTee, creatorCard, opponentCard] = await Promise.all([
+    loadTee(env, match.tee_id, range),
+    loadTee(env, opponentTeeId, range),
     env.DB.prepare('SELECT hole_scores FROM scorecards WHERE id = ?').bind(match.creator_scorecard_id).first<{ hole_scores: string }>(),
     env.DB.prepare('SELECT hole_scores FROM scorecards WHERE id = ?').bind(match.opponent_scorecard_id).first<{ hole_scores: string }>(),
   ]);
-  if (!tee || !holeRows?.results?.length || !creatorCard || !opponentCard) return;
+  if (!creatorTee || !opponentTee || !creatorCard || !opponentCard) return;
 
-  const holes: HoleSpec[] = holeRows.results.map((h: any) => ({
-    hole: h.hole_number, par: h.par, stroke_index: h.stroke_index,
-  }));
-  const grossByHole = (json: string) => {
-    const map = new Map<number, number>();
-    for (const e of JSON.parse(json) as { hole: number; gross: number }[]) map.set(e.hole, e.gross);
-    return holes.map((h) => map.get(h.hole) ?? 0);
-  };
-
-  const seg = segmentFor(tee, match.match_type);
-  const creatorCH = segmentCourseHandicap(match.creator_handicap ?? 0, seg);
-  const opponentCH = segmentCourseHandicap(match.opponent_handicap ?? 0, seg);
+  const creatorCH = segmentCourseHandicap(match.creator_handicap ?? 0, segmentFor(creatorTee.tee, match.match_type));
+  const opponentCH = segmentCourseHandicap(match.opponent_handicap ?? 0, segmentFor(opponentTee.tee, match.match_type));
   const diff = creatorCH - opponentCH;
 
-  const result = computeMatch(holes, grossByHole(creatorCard.hole_scores), grossByHole(opponentCard.hole_scores), diff);
+  const result = computeMatch(
+    creatorTee.holes,
+    grossFor(creatorTee.holes, creatorCard.hole_scores),
+    grossFor(opponentTee.holes, opponentCard.hole_scores),
+    diff,
+    opponentTee.holes
+  );
 
   await env.DB.prepare(
     `UPDATE matches SET result = ?, match_progression = ?, status = 'completed', completed_at = ?, updated_at = ? WHERE id = ?`
@@ -262,41 +281,37 @@ async function holesSetup(auth: AuthContext, env: Env, matchId: string): Promise
 
   if (!match.tee_id) return json(emptyCourse);
 
-  const [tee, holeRows] = await Promise.all([
-    env.DB.prepare('SELECT * FROM tees WHERE id = ?').bind(match.tee_id).first<any>(),
-    env.DB.prepare(
-      'SELECT hole_number, par, stroke_index FROM holes WHERE tee_id = ? AND hole_number BETWEEN ? AND ? ORDER BY hole_number'
-    ).bind(match.tee_id, range.min, range.max).all<any>(),
+  // Each player's own tee (they may differ). Pre-accept there's no opponent yet,
+  // so fall back to the creator's tee.
+  const callerIsCreator = match.creator_id === auth.userId;
+  const opponentTeeId = match.opponent_tee_id ?? match.tee_id;
+  const [creatorTee, opponentTee] = await Promise.all([
+    loadTee(env, match.tee_id, range),
+    loadTee(env, opponentTeeId, range),
   ]);
+  if (!creatorTee) return json(emptyCourse);
 
-  if (!tee || !holeRows?.results?.length) return json(emptyCourse);
+  // The card the CALLER fills uses their own tee's par + stroke index.
+  const mine = callerIsCreator ? creatorTee : (opponentTee ?? creatorTee);
+  const holes = mine.holes;
 
-  const holes = holeRows.results.map((h: any) => ({
-    hole: h.hole_number, par: h.par, stroke_index: h.stroke_index,
-  }));
-
-  // Course handicaps for the segment played (full 18 or the specific nine), plus
-  // the strokes the CALLER receives = the net difference allocated to the
-  // higher-handicap side. A player with NO index plays as scratch (0.0) — same
-  // rule the engine uses at settle. Only computed once the match has an opponent.
-  const seg = segmentFor(tee, match.match_type);
-  let creator_strokes = holes.map(() => 0);
-  let opponent_strokes = holes.map(() => 0);
+  // Course handicaps for the segment played (full 18 or the specific nine), each
+  // from that player's OWN tee, plus the strokes each receives = the net
+  // difference allocated to the higher-handicap side on their own tee's stroke
+  // index. A player with NO index plays as scratch (0.0) — same rule the engine
+  // uses at settle. Only computed once the match has an opponent.
+  let creator_strokes = creatorTee.holes.map(() => 0);
+  let opponent_strokes = (opponentTee ?? creatorTee).holes.map(() => 0);
   let creator_course_handicap: number | null = null;
   let opponent_course_handicap: number | null = null;
-  if (match.opponent_id) {
-    const specs: HoleSpec[] = holes.map((h: any) => ({
-      hole: h.hole, par: h.par, stroke_index: h.stroke_index,
-    }));
-    creator_course_handicap = segmentCourseHandicap(match.creator_handicap ?? 0, seg);
-    opponent_course_handicap = segmentCourseHandicap(match.opponent_handicap ?? 0, seg);
-    // Match-play: only the higher course handicap receives strokes, allocated on
-    // the hardest holes by stroke index, on the difference.
+  if (match.opponent_id && opponentTee) {
+    creator_course_handicap = segmentCourseHandicap(match.creator_handicap ?? 0, segmentFor(creatorTee.tee, match.match_type));
+    opponent_course_handicap = segmentCourseHandicap(match.opponent_handicap ?? 0, segmentFor(opponentTee.tee, match.match_type));
     const diff = creator_course_handicap - opponent_course_handicap;
-    if (diff > 0) creator_strokes = allocateStrokes(diff, specs);
-    else if (diff < 0) opponent_strokes = allocateStrokes(-diff, specs);
+    if (diff > 0) creator_strokes = allocateStrokes(diff, creatorTee.holes);
+    else if (diff < 0) opponent_strokes = allocateStrokes(-diff, opponentTee.holes);
   }
-  const my_strokes = match.creator_id === auth.userId ? creator_strokes : opponent_strokes;
+  const my_strokes = callerIsCreator ? creator_strokes : opponent_strokes;
 
   const par_total = holes.reduce((s: number, h: any) => s + h.par, 0);
   return json({

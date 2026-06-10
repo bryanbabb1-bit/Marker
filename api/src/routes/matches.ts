@@ -46,6 +46,9 @@ export async function handleMatches(
     return error('Method not allowed', 405);
   }
 
+  if (action === 'tees' && method === 'GET') return matchTees(auth, env, matchId);
+  if (action === 'tee' && method === 'POST') return setTee(auth, env, matchId, request);
+
   if (method === 'POST') {
     if (action === 'accept') return accept(auth, env, matchId);
     if (action === 'cancel') return cancel(auth, env, matchId);
@@ -238,19 +241,26 @@ async function accept(auth: AuthContext, env: Env, matchId: string): Promise<Res
   ]);
 
   const ts = now();
+  // The opponent defaults to the creator's tee (same as the prior single-tee
+  // behavior); they can switch to their own tee from the match screen before
+  // they score (POST /matches/:id/tee).
+  const ot = match.tee_id ?? null;
+  const otc = match.tee_color ?? null;
   // Conditional UPDATE guards a race (two golfers accepting the same open match);
   // only the first whose status still matches wins.
   const res = isOpen
     ? await env.DB.prepare(
         `UPDATE matches SET opponent_id = ?, status = 'accepted',
+            opponent_tee_id = ?, opponent_tee_color = ?,
             creator_handicap = COALESCE(creator_handicap, ?), opponent_handicap = ?, updated_at = ?
           WHERE id = ? AND status = 'open'`
-      ).bind(auth.userId, creator?.handicap ?? null, opponent?.handicap ?? null, ts, matchId).run()
+      ).bind(auth.userId, ot, otc, creator?.handicap ?? null, opponent?.handicap ?? null, ts, matchId).run()
     : await env.DB.prepare(
         `UPDATE matches SET status = 'accepted',
+            opponent_tee_id = ?, opponent_tee_color = ?,
             creator_handicap = COALESCE(creator_handicap, ?), opponent_handicap = ?, updated_at = ?
           WHERE id = ? AND status = 'pending' AND opponent_id = ?`
-      ).bind(creator?.handicap ?? null, opponent?.handicap ?? null, ts, matchId, auth.userId).run();
+      ).bind(ot, otc, creator?.handicap ?? null, opponent?.handicap ?? null, ts, matchId, auth.userId).run();
 
   if (!res.meta.changes) return error('This match can no longer be accepted', 409);
 
@@ -260,6 +270,73 @@ async function accept(auth: AuthContext, env: Env, matchId: string): Promise<Res
     await sendPush(env, match.creator_id, `${me?.first_name?.trim() || 'Your challenge'} accepted`, 'Your match is on — enter your scores after you play.', { matchId });
   }
 
+  const updated = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first();
+  return json(updated);
+}
+
+// ── Tees on a match's course ─────────────────────────────────────────────────
+// GET /matches/:id/tees — the tees available on this match's course (resolved
+// via the creator's tee → course), so a participant can switch to their own tee.
+async function matchTees(auth: AuthContext, env: Env, matchId: string): Promise<Response> {
+  const match = await env.DB.prepare('SELECT creator_id, opponent_id, tee_id FROM matches WHERE id = ?')
+    .bind(matchId).first<Record<string, any>>();
+  if (!match) return error('Match not found', 404);
+  if (match.creator_id !== auth.userId && match.opponent_id !== auth.userId) {
+    return error('Not your match', 403);
+  }
+  if (!match.tee_id) return json({ tees: [] });
+
+  const tee = await env.DB.prepare('SELECT course_id FROM tees WHERE id = ?').bind(match.tee_id).first<{ course_id: string }>();
+  if (!tee) return json({ tees: [] });
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM tees WHERE course_id = ? ORDER BY course_rating DESC'
+  ).bind(tee.course_id).all();
+  return json({ tees: results });
+}
+
+// ── Pick your tee ────────────────────────────────────────────────────────────
+// POST /matches/:id/tee { tee_id } — set the tee YOU play (creator → tee_id,
+// opponent → opponent_tee_id). Allowed only before you've submitted your card,
+// and only to a tee on the same course. Each player's course handicap + strokes
+// are recomputed from their own tee at settle.
+async function setTee(auth: AuthContext, env: Env, matchId: string, request: Request): Promise<Response> {
+  const match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?')
+    .bind(matchId).first<Record<string, any>>();
+  if (!match) return error('Match not found', 404);
+  const isCreator = match.creator_id === auth.userId;
+  const isOpponent = match.opponent_id === auth.userId;
+  if (!isCreator && !isOpponent) return error('Not your match', 403);
+  if (match.status !== 'accepted' && match.status !== 'in_progress') {
+    return error(`Cannot change tees on a ${match.status} match`, 409);
+  }
+  // Can't change your tee once your scores are in — it would move your strokes
+  // after the fact.
+  const myCard = isCreator ? match.creator_scorecard_id : match.opponent_scorecard_id;
+  if (myCard) return error('You already entered scores — tees are locked', 409);
+
+  const body = await parseBody(request);
+  const teeId = requireString(body.tee_id, 'tee_id', 32);
+  const tee = await env.DB.prepare('SELECT id, name, course_id FROM tees WHERE id = ?')
+    .bind(teeId).first<{ id: string; name: string; course_id: string }>();
+  if (!tee) return error('Unknown tee_id', 400);
+
+  // Must be a tee on THIS match's course.
+  if (match.tee_id) {
+    const baseTee = await env.DB.prepare('SELECT course_id FROM tees WHERE id = ?')
+      .bind(match.tee_id).first<{ course_id: string }>();
+    if (baseTee && baseTee.course_id !== tee.course_id) {
+      return error('That tee is on a different course', 400);
+    }
+  }
+
+  const ts = now();
+  if (isCreator) {
+    await env.DB.prepare('UPDATE matches SET tee_id = ?, tee_color = ?, updated_at = ? WHERE id = ?')
+      .bind(tee.id, tee.name, ts, matchId).run();
+  } else {
+    await env.DB.prepare('UPDATE matches SET opponent_tee_id = ?, opponent_tee_color = ?, updated_at = ? WHERE id = ?')
+      .bind(tee.id, tee.name, ts, matchId).run();
+  }
   const updated = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first();
   return json(updated);
 }

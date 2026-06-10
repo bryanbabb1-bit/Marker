@@ -93,6 +93,20 @@ describe('computeMatch', () => {
   it('throws if score arrays do not align to holes', () => {
     expect(() => computeMatch(HOLES_18, allGross(4), [4, 4, 4], 0)).toThrow();
   });
+
+  it('allocates each player\'s strokes on their OWN tee when tees differ', () => {
+    // Opponent plays a tee whose stroke index is REVERSED (hole 1 is SI 18,
+    // hole 18 is SI 1). The opponent receives 1 stroke → it must land on THEIR
+    // hardest hole (hole 18), not hole 1.
+    const oppHoles: HoleSpec[] = Array.from({ length: 18 }, (_, i) => ({
+      hole: i + 1, par: 4, stroke_index: 18 - i,
+    }));
+    const r = computeMatch(HOLES_18, allGross(4), allGross(4), -1, oppHoles);
+    expect(r.holes[17].winner).toBe('opponent');  // hole 18 = opponent's SI 1
+    expect(r.holes[17].opponent_net).toBe(3);
+    expect(r.holes[0].winner).toBe('tie');         // hole 1 = opponent's SI 18, no stroke
+    expect(r.final_result).toBe('opponent_wins');
+  });
 });
 
 describe('strokeDifferenceForHoles', () => {
