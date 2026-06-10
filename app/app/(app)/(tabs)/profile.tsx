@@ -8,6 +8,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useApi } from '@/lib/useApi';
 import { useUserStore } from '@/store/useUserStore';
 import { useColors } from '@/store/useThemeStore';
+import { CourseSelect } from '@/components/CourseSelect';
 import { haptics } from '@/lib/haptics';
 import { indexAgeLabel } from '@/lib/format';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
@@ -22,18 +23,22 @@ export default function ProfileScreen() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [ghin, setGhin] = useState('');
   const [handicap, setHandicap] = useState('');
+  const [homeCourseId, setHomeCourseId] = useState<string | null>(null);
+  const [homeCourseName, setHomeCourseName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Hydrate the form from the loaded profile.
+  // Hydrate the form from the loaded profile (+ resolve home course name).
   useEffect(() => {
     if (!user) return;
     setFirstName(user.first_name ?? '');
     setLastName(user.last_name ?? '');
-    setGhin(user.ghin_number ?? '');
     setHandicap(user.handicap != null ? String(user.handicap) : '');
-  }, [user]);
+    const hid = user.home_course_id ?? null;
+    setHomeCourseId(hid);
+    if (hid) api.getCourses().then((r) => setHomeCourseName(r.courses.find((x) => x.id === hid)?.name ?? null)).catch(() => {});
+    else setHomeCourseName(null);
+  }, [user, api]);
 
   const save = async () => {
     setSaving(true);
@@ -41,7 +46,7 @@ export default function ProfileScreen() {
       const patch: Record<string, unknown> = {
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
-        ghin_number: ghin.trim() || null,
+        home_course_id: homeCourseId,
       };
       if (handicap.trim() === '') {
         patch.handicap = null;
@@ -71,13 +76,14 @@ export default function ProfileScreen() {
         >
           <Field label="First name" value={firstName} onChangeText={setFirstName} placeholder="First" />
           <Field label="Last name" value={lastName} onChangeText={setLastName} placeholder="Last" />
-          <Field
-            label="GHIN number"
-            value={ghin}
-            onChangeText={setGhin}
-            placeholder="e.g. 1234567"
-            keyboardType="number-pad"
+
+          <CourseSelect
+            label="Home course"
+            valueName={homeCourseName}
+            onSelect={(course) => { setHomeCourseId(course?.id ?? null); setHomeCourseName(course?.name ?? null); }}
+            placeholder="Search your home course…"
           />
+
           <Field
             label="Handicap Index"
             value={handicap}
@@ -89,9 +95,8 @@ export default function ProfileScreen() {
             <Text style={styles.ageNote}>{indexAgeLabel(user.handicap, user.handicap_updated_at)}</Text>
           )}
           <Text style={styles.note}>
-            Your Handicap Index becomes the official GHIN value once GHIN
-            verification is connected. For now it's entered manually. You'll be
-            asked to confirm it when you post or accept a match.
+            Your home course pre-filters Discovery and the leaderboard. Your Handicap
+            Index is entered manually for now — you'll confirm it when you post or accept a match.
           </Text>
 
           <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>

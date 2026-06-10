@@ -74,8 +74,8 @@ export function DiscoveryFilters({ visible, value, onApply, onClose }: {
 
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.switchLabel}>Show all skill levels</Text>
-              <Text style={styles.switchHint}>Include matches outside your handicap range</Text>
+              <Text style={styles.switchLabel}>Browse everything</Text>
+              <Text style={styles.switchHint}>Ignore your home course and handicap range</Text>
             </View>
             <Switch
               value={local.all}

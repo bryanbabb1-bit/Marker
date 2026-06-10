@@ -1,9 +1,20 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, router, useSegments } from 'expo-router';
+import { useUserStore } from '@/store/useUserStore';
 import { colors, fonts } from '@/constants/theme';
 
 // Authenticated stack: the tab bar is the root, with detail screens pushed
 // over it (create match, match detail, message thread).
 export default function AppLayout() {
+  // First-run: send a signed-in user with no name to onboarding.
+  const user = useUserStore((s) => s.user);
+  const segments = useSegments();
+  useEffect(() => {
+    if (user && !user.first_name && !segments.includes('onboarding')) {
+      router.replace('/(app)/onboarding');
+    }
+  }, [user, segments]);
+
   return (
     <Stack
       screenOptions={{
@@ -18,6 +29,7 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="create" options={{ title: 'Post a Match', presentation: 'modal' }} />
       <Stack.Screen name="match/[id]" options={{ title: 'Match' }} />
       <Stack.Screen name="match/[id]/messages" options={{ title: 'Messages' }} />

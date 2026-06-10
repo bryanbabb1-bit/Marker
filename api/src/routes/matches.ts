@@ -58,13 +58,14 @@ export async function handleMatches(
 // creator-set handicap window contains the caller's index. When the caller has
 // no handicap set yet, the range filter is skipped (onboarding will set it).
 async function discover(auth: AuthContext, env: Env, request: Request): Promise<Response> {
-  const me = await env.DB.prepare('SELECT handicap FROM users WHERE id = ?')
-    .bind(auth.userId).first<{ handicap: number | null }>();
+  const me = await env.DB.prepare('SELECT handicap, home_course_id FROM users WHERE id = ?')
+    .bind(auth.userId).first<{ handicap: number | null; home_course_id: string | null }>();
   const today = now().slice(0, 10);
 
   // Optional search params (the Discovery filter sheet sets these):
   //   match_type=front_nine|back_nine|eighteen   course=<substring>
-  //   all=1  → ignore the handicap-eligibility window (browse every skill level)
+  //   all=1  → browse everything: ignore the handicap window AND the home-course
+  //            default. Otherwise the feed defaults to the player's home course.
   const url = new URL(request.url);
   const qpType = url.searchParams.get('match_type');
   const qpCourse = (url.searchParams.get('course') ?? '').trim();
@@ -85,9 +86,15 @@ async function discover(auth: AuthContext, env: Env, request: Request): Promise<
     sql += ' AND m.match_type = ?';
     binds.push(qpType);
   }
+  // Course: an explicit search wins; otherwise default to the home course
+  // (unless the user asked to browse everything).
   if (qpCourse) {
     sql += ' AND m.course_name LIKE ?';
     binds.push(`%${qpCourse}%`);
+  } else if (!showAll && me?.home_course_id) {
+    const home = await env.DB.prepare('SELECT name FROM courses WHERE id = ?')
+      .bind(me.home_course_id).first<{ name: string }>();
+    if (home?.name) { sql += ' AND m.course_name = ?'; binds.push(home.name); }
   }
   sql += ' ORDER BY m.play_date ASC, m.created_at DESC LIMIT 100';
 

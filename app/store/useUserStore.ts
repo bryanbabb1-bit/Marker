@@ -10,6 +10,7 @@ export interface User {
   handicap: number | null;
   handicap_updated_at: string | null;
   profile_photo_url: string | null;
+  home_course_id: string | null;
   created_at: string;
   updated_at: string;
 }
