@@ -46,6 +46,21 @@ export function useApi() {
       // Players
       getPlayer: (id: string) => call<PlayerProfile>(`/players/${id}`),
 
+      // Profile photo upload (raw image bytes -> R2 -> profile_photo_url)
+      uploadPhoto: async (localUri: string): Promise<{ url: string }> => {
+        const token = await getTokenRef.current();
+        if (!token) throw new Error('Not signed in');
+        const fileResp = await fetch(localUri);
+        const blob = await fileResp.blob();
+        const up = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/photo`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': blob.type || 'image/jpeg' },
+          body: blob,
+        });
+        if (!up.ok) throw new Error((await up.json().catch(() => ({}))).error ?? 'Upload failed');
+        return up.json();
+      },
+
       // Favorites (common opponents)
       getFavorites: () => call<{ favorites: Favorite[] }>('/favorites'),
       addFavorite: (userId: string) => call<{ favorited: boolean }>(`/favorites/${userId}`, { method: 'POST' }),

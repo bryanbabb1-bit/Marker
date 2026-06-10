@@ -41,7 +41,7 @@ export default function PlayerScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Avatar name={p.name} size={88} />
+          <Avatar name={p.name} size={88} photoUrl={p.photo_url} />
           <View style={styles.headerMid}>
             <Text style={styles.name}>{p.name}{p.is_me ? ' (You)' : ''}</Text>
             <Text style={styles.sub}>Index {formatHandicap(p.handicap)}</Text>

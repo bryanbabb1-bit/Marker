@@ -12,6 +12,11 @@ binding = "DB"
 database_name = "match-play"
 database_id = "26a94ebb-1db5-4565-8711-35c82f2bbac0"
 
+# Profile-photo storage.
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "quell-photos"
+
 # Per-user rate limit (mirrors TrueForecast). 300 req / 60s.
 [[unsafe.bindings]]
 name = "RATE_LIMITER"

@@ -10,6 +10,7 @@ export interface Env {
   CLERK_PUBLISHABLE_KEY: string;
   ENVIRONMENT: string;
   RATE_LIMITER?: RateLimitBinding;
+  PHOTOS: R2Bucket;
   // Optional comma-separated allowlist of token `azp` (authorized party) values.
   // When set, tokens whose azp isn't listed are rejected. Left unset = current
   // behavior, so enabling it is a deliberate, non-breaking opt-in.

@@ -4,11 +4,14 @@ import {
   ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@clerk/clerk-expo';
 import { useApi } from '@/lib/useApi';
 import { useUserStore } from '@/store/useUserStore';
 import { useColors } from '@/store/useThemeStore';
 import { CourseSelect } from '@/components/CourseSelect';
+import { Avatar } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
 import { indexAgeLabel } from '@/lib/format';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
@@ -27,6 +30,24 @@ export default function ProfileScreen() {
   const [homeCourseId, setHomeCourseId] = useState<string | null>(null);
   const [homeCourseName, setHomeCourseName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const pickPhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('Allow photos', 'Enable photo access for Quell in iOS Settings to set a picture.'); return; }
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 });
+    if (res.canceled || !res.assets?.[0]) return;
+    setUploading(true);
+    try {
+      const { url } = await api.uploadPhoto(res.assets[0].uri);
+      if (user) setUser({ user: { ...user, profile_photo_url: url } });
+      haptics.success();
+    } catch (e: any) {
+      Alert.alert('Could not upload', e?.message ?? 'Try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Hydrate the form from the loaded profile (+ resolve home course name).
   useEffect(() => {
@@ -74,6 +95,14 @@ export default function ProfileScreen() {
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
+          <TouchableOpacity style={styles.avatarHeader} onPress={pickPhoto} disabled={uploading} activeOpacity={0.85}>
+            <Avatar name={[firstName, lastName].filter(Boolean).join(' ') || user?.email} size={92} photoUrl={user?.profile_photo_url} />
+            <View style={styles.avatarBadge}>
+              {uploading ? <ActivityIndicator color={colors.onAccent} size="small" /> : <Ionicons name="camera" size={16} color={colors.onAccent} />}
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.avatarHint}>Tap to change photo</Text>
+
           <Field label="First name" value={firstName} onChangeText={setFirstName} placeholder="First" />
           <Field label="Last name" value={lastName} onChangeText={setLastName} placeholder="Last" />
 
@@ -137,6 +166,9 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
   container: { padding: spacing.lg, gap: spacing.md },
+  avatarHeader: { alignSelf: 'center', marginBottom: spacing.xs },
+  avatarBadge: { position: 'absolute', right: -2, bottom: -2, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.bg },
+  avatarHint: { ...typography.caption, color: colors.muted, textAlign: 'center', marginBottom: spacing.sm },
   field: { gap: spacing.xs },
   label: { ...typography.caption, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: {

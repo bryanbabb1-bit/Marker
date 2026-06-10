@@ -74,7 +74,7 @@ async function discover(auth: AuthContext, env: Env, request: Request): Promise<
 
   let sql =
     `SELECT m.*, u.first_name AS creator_first_name, u.last_name AS creator_last_name,
-            u.handicap AS creator_handicap_index
+            u.handicap AS creator_handicap_index, u.profile_photo_url AS creator_photo_url
        FROM matches m JOIN users u ON u.id = m.creator_id
       WHERE m.status = 'open' AND m.creator_id != ? AND m.play_date >= ?`;
   const binds: unknown[] = [auth.userId, today];

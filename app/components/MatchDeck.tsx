@@ -149,7 +149,7 @@ function CardBody({ m }: { m: DiscoveryMatch }) {
   const name = [m.creator_first_name, m.creator_last_name].filter(Boolean).join(' ') || 'A golfer';
   return (
     <View style={styles.body}>
-      <Avatar name={name} size={84} />
+      <Avatar name={name} size={84} photoUrl={m.creator_photo_url} />
       <Text style={styles.name}>{name}</Text>
       <View style={styles.idxPill}>
         <Text style={styles.idxText}>Index {formatHandicap(m.creator_handicap_index)}</Text>

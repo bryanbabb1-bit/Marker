@@ -12,6 +12,7 @@ import { handleCourses } from './routes/courses';
 import { handleFavorites } from './routes/favorites';
 import { handlePlayer } from './routes/players';
 import { runReminders } from './routes/reminders';
+import { handleUploadPhoto, servePhoto } from './routes/photos';
 
 // CORS only matters for browsers (Expo Web, dev tooling). Native iOS/Android
 // don't send Origin and aren't subject to CORS. Reflect the Origin only when
@@ -55,6 +56,9 @@ async function handleRequest(
   // ── Public ──
   if (root === 'health' && method === 'GET') {
     return { response: json({ ok: true, timestamp: now(), env: env.ENVIRONMENT }), userId: null };
+  }
+  if (root === 'photos' && method === 'GET') {
+    return { response: await servePhoto(env, segments), userId: null };
   }
 
   // ── Authenticated ──
@@ -104,6 +108,8 @@ async function handleRequest(
     response = await handleFavorites(request, auth, env, segments);
   } else if (root === 'players' && method === 'GET') {
     response = await handlePlayer(auth, env, segments);
+  } else if (root === 'photo' && method === 'POST') {
+    response = await handleUploadPhoto(auth, env, request);
   } else {
     response = error('Not found', 404);
   }

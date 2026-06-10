@@ -9,7 +9,7 @@ export async function handlePlayer(auth: AuthContext, env: Env, segments: string
   if (!id) return error('Not found', 404);
 
   const u = await env.DB.prepare(
-    'SELECT id, first_name, last_name, handicap, home_course_id FROM users WHERE id = ?'
+    'SELECT id, first_name, last_name, handicap, home_course_id, profile_photo_url FROM users WHERE id = ?'
   ).bind(id).first<Record<string, any>>();
   if (!u) return error('Player not found', 404);
 
@@ -45,6 +45,7 @@ export async function handlePlayer(auth: AuthContext, env: Env, segments: string
     user_id: id,
     name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'A golfer',
     handicap: u.handicap,
+    photo_url: u.profile_photo_url ?? null,
     home_course,
     wins, losses, ties, played,
     win_pct: decided > 0 ? Math.round((wins / decided) * 100) : 0,

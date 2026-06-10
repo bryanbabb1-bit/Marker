@@ -15,6 +15,7 @@ export interface PlayerProfile {
   user_id: string;
   name: string;
   handicap: number | null;
+  photo_url: string | null;
   home_course: string | null;
   wins: number;
   losses: number;
@@ -59,6 +60,7 @@ export interface DiscoveryMatch extends Match {
   creator_first_name: string | null;
   creator_last_name: string | null;
   creator_handicap_index: number | null;
+  creator_photo_url: string | null;
 }
 
 export interface Message {
