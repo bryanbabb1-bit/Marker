@@ -22,24 +22,28 @@ const MATCHES = [
 ];
 
 const esc = (s) => String(s).replace(/'/g, "''");
-function score(par, bias) {
-  // bias < 0 => tends lower (better). Clamp to a sane gross.
+// Realistic INTEGER hole score around par (birdie/par/bogey/double). `tier`:
+// 'good' = the intended winner (skews a touch better), 'bad' = the loser, 'even'
+// = neutral. Never a decimal.
+function score(par, tier) {
   const r = Math.random();
-  let d = r < 0.18 ? -1 : r < 0.62 ? 0 : r < 0.9 ? 1 : 2;
-  d += bias;
+  let d;
+  if (tier === 'good')      d = r < 0.22 ? -1 : r < 0.70 ? 0 : r < 0.92 ? 1 : 2;
+  else if (tier === 'bad')  d = r < 0.08 ? -1 : r < 0.45 ? 0 : r < 0.82 ? 1 : 2;
+  else                      d = r < 0.15 ? -1 : r < 0.60 ? 0 : r < 0.88 ? 1 : 2;
   return Math.max(2, Math.min(9, par + d));
 }
 
 function build(want) {
-  // bias gross so the intended side wins more holes.
-  const cBias = want === 'win' ? -0.6 : want === 'loss' ? 0.5 : 0;
-  const oBias = want === 'loss' ? -0.6 : want === 'win' ? 0.5 : 0;
+  // Skew each side's distribution so the intended side wins more holes.
+  const cTier = want === 'win' ? 'good' : want === 'loss' ? 'bad' : 'even';
+  const oTier = want === 'win' ? 'bad' : want === 'loss' ? 'good' : 'even';
   const holes = [];
   let delta = 0, decidedOn = null, closeoutDelta = 0, closeoutRemaining = 0;
   // Play all 18 (full gross/card); lock the result at the closeout hole.
   for (let i = 0; i < 18; i++) {
-    const cg = score(PAR[i], cBias);
-    const og = score(PAR[i], oBias);
+    const cg = score(PAR[i], cTier);
+    const og = score(PAR[i], oTier);
     const winner = cg < og ? 'creator' : og < cg ? 'opponent' : 'tie';
     if (winner === 'creator') delta++; else if (winner === 'opponent') delta--;
     holes.push({
