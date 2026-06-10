@@ -11,10 +11,10 @@ Backend: Cloudflare Worker `match-play-api.bryan-babb1.workers.dev` (D1 live)
 
 ## 0. Assets & accounts (do first)
 
-- [ ] **App icon** — a 1024×1024 PNG (no transparency) once the Foretera logo is ready.
-      Drop it at `app/assets/icon.png`; Claude then wires `icon`, `splash`, and
-      Android `adaptiveIcon` in app.json. (Until then builds use Expo's default
-      icon — fine for internal testing, NOT for public release.)
+- [x] **App icon / splash / adaptive icon** — DONE. Built from the Foretera logo
+      (`app/assets/icon.png`, `splash.png`, `adaptive-icon.png`) and wired in
+      app.json (icon + expo-splash-screen image + android.adaptiveIcon, brand navy
+      `#050E1B`). Takes effect on the next build.
 - [ ] **Privacy policy URL** — both stores require one. Host a simple page (even a
       Notion/GitHub Pages doc) covering: account email, profile photo, handicap,
       match data; no selling data; how to delete an account.
