@@ -17,7 +17,7 @@ import { spacing, radius, typography, type Palette } from '@/constants/theme';
 import { formatPlayWhen, STATUS_LABELS } from '@/lib/format';
 
 // Matches that can be archived out of the list (the record keeps them).
-const TERMINAL = ['completed', 'cancelled', 'declined'];
+const TERMINAL = ['completed', 'cancelled', 'declined', 'expired'];
 
 const statusTint = (c: Palette): Record<string, string> => ({
   open: c.muted,
@@ -27,6 +27,7 @@ const statusTint = (c: Palette): Record<string, string> => ({
   completed: c.text,
   declined: c.loss,
   cancelled: c.loss,
+  expired: c.muted,
 });
 
 export default function MyMatchesScreen() {

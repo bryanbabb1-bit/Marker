@@ -56,4 +56,5 @@ export const STATUS_LABELS: Record<MatchStatus, string> = {
   completed: 'Completed',
   declined: 'Declined',
   cancelled: 'Cancelled',
+  expired: 'Expired',
 };

@@ -1,7 +1,7 @@
 // Shared client-side types mirroring the API's D1 rows.
 
 export type MatchStatus =
-  | 'open' | 'pending' | 'accepted' | 'in_progress' | 'completed' | 'declined' | 'cancelled';
+  | 'open' | 'pending' | 'accepted' | 'in_progress' | 'completed' | 'declined' | 'cancelled' | 'expired';
 
 // A starred "common opponent".
 export interface Favorite {

@@ -37,6 +37,7 @@ export async function handleUpdateMe(auth: AuthContext, request: Request, env: E
   if ('profile_photo_url' in body) { fields.push('profile_photo_url = ?'); values.push(optionalString(body.profile_photo_url, 'profile_photo_url', 1024)); }
   if ('expo_push_token' in body) { fields.push('expo_push_token = ?'); values.push(optionalString(body.expo_push_token, 'expo_push_token', 256)); }
   if ('home_course_id' in body) { fields.push('home_course_id = ?'); values.push(optionalString(body.home_course_id, 'home_course_id', 64)); }
+  if ('timezone' in body) { fields.push('timezone = ?'); values.push(optionalString(body.timezone, 'timezone', 64)); }
 
   if (fields.length === 0) return error('No fields to update', 400);
 

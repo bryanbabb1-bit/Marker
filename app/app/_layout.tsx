@@ -75,9 +75,14 @@ function AuthGate() {
           return;
         }
         loadUser(t);
-        // Register for push once per session and save the token to the profile.
+        // Sync timezone (for 7pm-local score reminders) + register for push,
+        // once per session.
         if (!pushRegistered.current) {
           pushRegistered.current = true;
+          try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz) apiJson('/me', t, { method: 'PATCH', body: JSON.stringify({ timezone: tz }) }).catch(() => {});
+          } catch { /* ignore */ }
           registerForPush()
             .then((tok) => {
               if (tok) apiJson('/me', t, { method: 'PATCH', body: JSON.stringify({ expo_push_token: tok }) }).catch(() => {});

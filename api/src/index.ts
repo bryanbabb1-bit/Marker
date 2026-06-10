@@ -11,6 +11,7 @@ import { handleMessages } from './routes/messages';
 import { handleCourses } from './routes/courses';
 import { handleFavorites } from './routes/favorites';
 import { handlePlayer } from './routes/players';
+import { runReminders } from './routes/reminders';
 
 // CORS only matters for browsers (Expo Web, dev tooling). Native iOS/Android
 // don't send Origin and aren't subject to CORS. Reflect the Origin only when
@@ -154,5 +155,10 @@ export default {
     }));
 
     return final;
+  },
+
+  // Hourly cron (wrangler.toml) — score reminders + forfeit sweep.
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runReminders(env));
   },
 } satisfies ExportedHandler<Env>;

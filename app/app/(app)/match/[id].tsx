@@ -125,6 +125,9 @@ export default function MatchDetailScreen() {
   const oppSubmitted = isCreator ? !!match.opponent_scorecard_id : !!match.creator_scorecard_id;
   const scoringStage =
     match.status === 'accepted' || match.status === 'in_progress' || match.status === 'completed';
+  // A completed match missing a card was won by forfeit (no hole-by-hole reveal).
+  const isForfeit = match.status === 'completed' && (!match.creator_scorecard_id || !match.opponent_scorecard_id);
+  const iWon = (match.result === 'creator_wins' && isCreator) || (match.result === 'opponent_wins' && isOpponent);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -200,21 +203,35 @@ export default function MatchDetailScreen() {
         />
       )}
 
+      {match.status === 'expired' && (
+        <View style={styles.card}>
+          <Text style={styles.note}>This match expired — neither player submitted a score in time.</Text>
+        </View>
+      )}
+
       {isParticipant && scoringStage && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Scores</Text>
 
           {match.status === 'completed' ? (
-            <>
-              <Text style={styles.note}>Both cards are in. See how it played out hole by hole.</Text>
-              <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/reveal`)}>
-                <Ionicons name="trophy-outline" size={18} color={colors.surface} />
-                <Text style={styles.primaryText}>View the reveal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/scorecard`)}>
-                <Text style={styles.secondaryText}>Head-to-head scorecard</Text>
-              </TouchableOpacity>
-            </>
+            isForfeit ? (
+              <Text style={styles.note}>
+                {iWon
+                  ? `Won by forfeit — ${otherName} didn't submit their score in time.`
+                  : 'You forfeited — no score was submitted in time.'}
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.note}>Both cards are in. See how it played out hole by hole.</Text>
+                <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/reveal`)}>
+                  <Ionicons name="trophy-outline" size={18} color={colors.surface} />
+                  <Text style={styles.primaryText}>View the reveal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/scorecard`)}>
+                  <Text style={styles.secondaryText}>Head-to-head scorecard</Text>
+                </TouchableOpacity>
+              </>
+            )
           ) : !mySubmitted ? (
             <>
               <Text style={styles.note}>Enter your hole-by-hole gross scores. They stay hidden until your opponent submits too.</Text>
