@@ -7,15 +7,27 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dXNhYmxlLW1pZGdlLTgzLmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_API_BASE_URL": "https://match-play-api.bryan-babb1.workers.dev"
+      },
       "ios": {
         "simulator": false
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dXNhYmxlLW1pZGdlLTgzLmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_API_BASE_URL": "https://match-play-api.bryan-babb1.workers.dev"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dXNhYmxlLW1pZGdlLTgzLmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_API_BASE_URL": "https://match-play-api.bryan-babb1.workers.dev"
+      }
     }
   },
   "submit": {
