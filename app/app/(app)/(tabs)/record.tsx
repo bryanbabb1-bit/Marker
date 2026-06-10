@@ -11,6 +11,7 @@ import { useColors } from '@/store/useThemeStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useFavorites } from '@/store/useFavoritesStore';
 import { SkeletonCard, Avatar } from '@/components/ui';
+import { haptics } from '@/lib/haptics';
 import { formatHandicap } from '@/lib/format';
 import type { MyRecord, LeaderboardEntry, Outcome } from '@/types';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
@@ -28,7 +29,7 @@ export default function RecordScreen() {
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<'home' | 'global'>('global');
   const [homeName, setHomeName] = useState<string | null>(null);
-  const { list: favorites, load: loadFavs } = useFavorites();
+  const { list: favorites, load: loadFavs, isFavorite, toggle: toggleFav } = useFavorites();
   useEffect(() => { loadFavs(); }, [loadFavs]);
 
   // Resolve the home course name and default the board to home-course standings.
@@ -138,11 +139,13 @@ export default function RecordScreen() {
             <View style={styles.card}>
               {favorites.map((f, i) => (
                 <View key={f.user_id} style={[styles.favRow, i > 0 && styles.rowDivider]}>
-                  <Avatar name={f.name} size={32} />
-                  <View style={styles.favMid}>
-                    <Text style={styles.vsName}>{f.name}</Text>
-                    <Text style={styles.resultCourse}>Index {formatHandicap(f.handicap)}</Text>
-                  </View>
+                  <TouchableOpacity style={styles.favTap} activeOpacity={0.7} onPress={() => router.push(`/(app)/player/${f.user_id}`)}>
+                    <Avatar name={f.name} size={32} />
+                    <View style={styles.favMid}>
+                      <Text style={styles.vsName}>{f.name}</Text>
+                      <Text style={styles.resultCourse}>Index {formatHandicap(f.handicap)}</Text>
+                    </View>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.challengeBtn}
                     onPress={() => router.push(`/(app)/create?opponent_id=${f.user_id}&opponent_name=${encodeURIComponent(f.name)}`)}
@@ -180,7 +183,13 @@ export default function RecordScreen() {
               <Text style={[styles.lbPct, styles.lbHeadText]}>Win%</Text>
             </View>
             {board.map((e, i) => (
-              <View key={e.user_id} style={[styles.lbRow, styles.rowDivider, e.is_me && styles.lbMine]}>
+              <TouchableOpacity
+                key={e.user_id}
+                style={[styles.lbRow, styles.rowDivider, e.is_me && styles.lbMine]}
+                activeOpacity={0.7}
+                disabled={e.is_me}
+                onPress={() => router.push(`/(app)/player/${e.user_id}`)}
+              >
                 <Text style={styles.lbRank}>{i + 1}</Text>
                 <Avatar name={e.name} size={26} />
                 <Text style={[styles.lbName, e.is_me && styles.lbMineText]} numberOfLines={1}>
@@ -188,7 +197,12 @@ export default function RecordScreen() {
                 </Text>
                 <Text style={styles.lbWl}>{e.wins}–{e.losses}–{e.ties}</Text>
                 <Text style={styles.lbPct}>{e.win_pct}%</Text>
-              </View>
+                {e.is_me ? <View style={styles.lbStar} /> : (
+                  <TouchableOpacity style={styles.lbStar} hitSlop={8} onPress={() => { haptics.select(); toggleFav(e.user_id, { name: e.name, handicap: null }); }}>
+                    <Ionicons name={isFavorite(e.user_id) ? 'star' : 'star-outline'} size={16} color={isFavorite(e.user_id) ? colors.accent : colors.muted} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
             ))}
           </View>
         ) : (
@@ -255,7 +269,9 @@ function makeStyles(colors: Palette) {
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   resultMid: { flex: 1 },
   favRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
+  favTap: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
   favMid: { flex: 1 },
+  lbStar: { width: 20, alignItems: 'center' },
   challengeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
   challengeBtnText: { ...typography.caption, color: colors.onAccent, fontWeight: '700' },
   vsName: { ...typography.bodySemiBold },

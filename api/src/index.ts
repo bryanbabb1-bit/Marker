@@ -10,6 +10,7 @@ import { handleScorecards } from './routes/scorecards';
 import { handleMessages } from './routes/messages';
 import { handleCourses } from './routes/courses';
 import { handleFavorites } from './routes/favorites';
+import { handlePlayer } from './routes/players';
 
 // CORS only matters for browsers (Expo Web, dev tooling). Native iOS/Android
 // don't send Origin and aren't subject to CORS. Reflect the Origin only when
@@ -100,6 +101,8 @@ async function handleRequest(
     response = await handleCourses(request, auth, env, segments);
   } else if (root === 'favorites') {
     response = await handleFavorites(request, auth, env, segments);
+  } else if (root === 'players' && method === 'GET') {
+    response = await handlePlayer(auth, env, segments);
   } else {
     response = error('Not found', 404);
   }

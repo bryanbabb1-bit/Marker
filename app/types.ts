@@ -10,6 +10,21 @@ export interface Favorite {
   handicap: number | null;
 }
 
+// Public player profile (GET /players/:id).
+export interface PlayerProfile {
+  user_id: string;
+  name: string;
+  handicap: number | null;
+  home_course: string | null;
+  wins: number;
+  losses: number;
+  ties: number;
+  played: number;
+  win_pct: number;
+  head_to_head: { wins: number; losses: number; ties: number };
+  is_me: boolean;
+}
+
 export type MatchType = 'front_nine' | 'back_nine' | 'eighteen';
 
 export interface Match {

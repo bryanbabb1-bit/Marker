@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { apiJson } from '@/lib/api';
 import type {
   DiscoveryMatch, Match, Message, HoleEntry, RevealResponse, SubmitScoresResponse, HolesSetup,
-  MyRecord, LeaderboardEntry, CourseSummary, TeeSummary, Favorite,
+  MyRecord, LeaderboardEntry, CourseSummary, TeeSummary, Favorite, PlayerProfile,
 } from '@/types';
 
 export interface CreateMatchInput {
@@ -43,6 +43,9 @@ export function useApi() {
 
   return useMemo(
     () => ({
+      // Players
+      getPlayer: (id: string) => call<PlayerProfile>(`/players/${id}`),
+
       // Favorites (common opponents)
       getFavorites: () => call<{ favorites: Favorite[] }>('/favorites'),
       addFavorite: (userId: string) => call<{ favorited: boolean }>(`/favorites/${userId}`, { method: 'POST' }),
