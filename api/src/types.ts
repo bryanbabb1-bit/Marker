@@ -28,3 +28,8 @@ export type MatchStatus = (typeof MATCH_STATUSES)[number];
 
 export const MATCH_TYPES = ['front_nine', 'back_nine', 'eighteen'] as const;
 export type MatchType = (typeof MATCH_TYPES)[number];
+
+// Per-match visibility. Private = the two players only; public = also surfaced
+// in the course feed. Defaults to private.
+export const VISIBILITIES = ['private', 'public'] as const;
+export type Visibility = (typeof VISIBILITIES)[number];

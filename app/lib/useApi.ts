@@ -4,6 +4,7 @@ import { apiJson } from '@/lib/api';
 import type {
   DiscoveryMatch, Match, Message, HoleEntry, RevealResponse, SubmitScoresResponse, HolesSetup,
   MyRecord, LeaderboardEntry, CourseSummary, TeeSummary, Favorite, PlayerProfile, Gif,
+  CourseFeedMatch, Visibility,
 } from '@/types';
 
 export interface CreateMatchInput {
@@ -13,6 +14,7 @@ export interface CreateMatchInput {
   play_date: string;
   play_time?: string | null;
   match_type: string;
+  visibility?: Visibility; // 'private' (default) | 'public'
   stakes?: number | null;
   hcp_range_min: number;
   hcp_range_max: number;
@@ -107,6 +109,15 @@ export function useApi() {
         call<Match>(`/matches/${id}/decline`, { method: 'POST' }),
       nudgeMatch: (id: string) =>
         call<{ ok: boolean; reason?: string }>(`/matches/${id}/nudge`, { method: 'POST' }),
+      setVisibility: (id: string, visibility: Visibility) =>
+        call<Match>(`/matches/${id}/visibility`, { method: 'POST', body: JSON.stringify({ visibility }) }),
+
+      // Course feed (today's public activity at a course)
+      courseFeed: (course: string, date?: string) => {
+        const q = new URLSearchParams({ course });
+        if (date) q.set('date', date);
+        return call<{ matches: CourseFeedMatch[] }>(`/matches/feed?${q.toString()}`);
+      },
 
       // Scorecards
       getMatchHoles: (matchId: string) =>

@@ -29,6 +29,8 @@ export interface PlayerProfile {
 
 export type MatchType = 'front_nine' | 'back_nine' | 'eighteen';
 
+export type Visibility = 'private' | 'public';
+
 export interface Match {
   id: string;
   creator_id: string;
@@ -42,6 +44,7 @@ export interface Match {
   play_date: string;        // YYYY-MM-DD
   play_time: string | null; // HH:MM
   match_type: MatchType;
+  visibility?: Visibility;  // 'private' (default) | 'public' (in the course feed)
   stakes: number | null;    // display only
   hcp_range_min: number;
   hcp_range_max: number;
@@ -67,6 +70,26 @@ export interface DiscoveryMatch extends Match {
   creator_last_name: string | null;
   creator_handicap_index: number | null;
   creator_photo_url: string | null;
+}
+
+// A row in a course feed (GET /matches/feed). Public matches at a course on a
+// given day — live (accepted/in_progress) and completed.
+export interface CourseFeedMatch {
+  id: string;
+  course_name: string;
+  play_date: string;
+  play_time: string | null;
+  match_type: MatchType;
+  status: MatchStatus;
+  result: 'creator_wins' | 'opponent_wins' | 'tie' | null;
+  final_delta: string | null; // "3 & 2" — completed only
+  creator_id: string;
+  opponent_id: string | null;
+  creator_name: string;
+  opponent_name: string;
+  creator_photo_url: string | null;
+  opponent_photo_url: string | null;
+  is_mine: boolean;
 }
 
 export interface Message {

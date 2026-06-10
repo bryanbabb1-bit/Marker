@@ -12,7 +12,7 @@ import { useFavorites } from '@/store/useFavoritesStore';
 import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
 import { Avatar } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
-import type { Match, HolesSetup, TeeSummary } from '@/types';
+import type { Match, HolesSetup, TeeSummary, Visibility } from '@/types';
 import { MATCH_TYPE_LABELS } from '@/types';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
 import { formatHandicap, formatPlayWhen, STATUS_LABELS } from '@/lib/format';
@@ -201,6 +201,22 @@ export default function MatchDetailScreen() {
     isParticipant && !!match.opponent_id &&
     (match.status === 'accepted' || match.status === 'in_progress') && !mySubmitted;
 
+  // Visibility — the creator can flip private/public until a scorecard is in
+  // (then it locks). Shown to participants only.
+  const visibility: Visibility = match.visibility ?? 'private';
+  const isPublic = visibility === 'public';
+  const canFlipVisibility =
+    isCreator && !match.creator_scorecard_id && !match.opponent_scorecard_id &&
+    (match.status === 'open' || match.status === 'pending' ||
+     match.status === 'accepted' || match.status === 'in_progress');
+  const flipVisibility = async () => {
+    haptics.select();
+    setActing(true);
+    try { setMatch(await api.setVisibility(match.id, isPublic ? 'private' : 'public')); }
+    catch (e: any) { Alert.alert('Could not change visibility', e?.message ?? 'Try again.'); }
+    finally { setActing(false); }
+  };
+
   return (
     <View style={styles.screen}>
     <ScrollView contentContainerStyle={styles.container}>
@@ -232,6 +248,19 @@ export default function MatchDetailScreen() {
         )}
         {match.status === 'open' && (
           <Row icon="people-outline" label="Wants handicap" value={`${match.hcp_range_min}–${match.hcp_range_max}`} />
+        )}
+        {isParticipant && (
+          <Row
+            icon={isPublic ? 'earth-outline' : 'lock-closed-outline'}
+            label="Visibility"
+            value={isPublic ? 'Public · in course feed' : 'Private'}
+          />
+        )}
+        {canFlipVisibility && (
+          <TouchableOpacity style={styles.teeChange} disabled={acting} onPress={flipVisibility} activeOpacity={0.7}>
+            <Ionicons name={isPublic ? 'lock-closed-outline' : 'earth-outline'} size={16} color={colors.accent} />
+            <Text style={styles.teeChangeText}>{isPublic ? 'Make private' : 'Make public'}</Text>
+          </TouchableOpacity>
         )}
         {canChangeTee && (
           <TouchableOpacity style={styles.teeChange} onPress={openTeePicker} activeOpacity={0.7}>

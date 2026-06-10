@@ -11,7 +11,7 @@ import { haptics } from '@/lib/haptics';
 import { ConfirmIndexSheet } from '@/components/ConfirmIndexSheet';
 import { CourseSelect } from '@/components/CourseSelect';
 import { Ionicons } from '@expo/vector-icons';
-import type { MatchType, CourseSummary, TeeSummary } from '@/types';
+import type { MatchType, CourseSummary, TeeSummary, Visibility } from '@/types';
 import { MATCH_TYPE_LABELS } from '@/types';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
 
@@ -51,6 +51,7 @@ export default function CreateMatchScreen() {
   const [playDate, setPlayDate] = useState(isoToday());
   const days = useMemo(() => nextDays(14), []);
   const [matchType, setMatchType] = useState<MatchType>('eighteen');
+  const [visibility, setVisibility] = useState<Visibility>('private');
   const [hcpMin, setHcpMin] = useState('');
   const [hcpMax, setHcpMax] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -106,6 +107,7 @@ export default function CreateMatchScreen() {
       play_date: playDate,
       play_time: null,
       match_type: matchType,
+      visibility,
       stakes: null,
       hcp_range_min: min,
       hcp_range_max: max,
@@ -228,6 +230,29 @@ export default function CreateMatchScreen() {
           ))}
         </View>
 
+        <Text style={styles.label}>Visibility</Text>
+        <View style={styles.segment}>
+          <TouchableOpacity
+            style={[styles.segBtn, styles.segRow, visibility === 'private' && styles.segBtnActive]}
+            onPress={() => { haptics.select(); setVisibility('private'); }}
+          >
+            <Ionicons name="lock-closed-outline" size={15} color={visibility === 'private' ? colors.surface : colors.muted} />
+            <Text style={[styles.segText, visibility === 'private' && styles.segTextActive]}>Private</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segBtn, styles.segRow, visibility === 'public' && styles.segBtnActive]}
+            onPress={() => { haptics.select(); setVisibility('public'); }}
+          >
+            <Ionicons name="earth-outline" size={15} color={visibility === 'public' ? colors.surface : colors.muted} />
+            <Text style={[styles.segText, visibility === 'public' && styles.segTextActive]}>Public</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.note}>
+          {visibility === 'public'
+            ? 'Shows in the course feed once you tee off — players + result, never stakes.'
+            : 'Only you and your opponent can see this match.'}
+        </Text>
+
         {!isChallenge ? (
           <>
             <Text style={styles.label}>Opponent handicap range</Text>
@@ -319,6 +344,7 @@ function makeStyles(colors: Palette) {
   segment: { flexDirection: 'row', gap: spacing.sm },
   segBtn: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingVertical: spacing.sm + 2, alignItems: 'center', backgroundColor: colors.surface },
   segBtnActive: { backgroundColor: colors.fairway, borderColor: colors.fairway },
+  segRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   segText: { ...typography.bodySemiBold, color: colors.ink },
   segTextActive: { color: colors.surface },
   note: { ...typography.caption, color: colors.muted },

@@ -1,6 +1,6 @@
 import type { AuthContext } from '../lib/auth';
 import type { Env } from '../types';
-import { MATCH_TYPES } from '../types';
+import { MATCH_TYPES, VISIBILITIES } from '../types';
 import { json, error } from '../lib/response';
 import { sendPush } from '../lib/push';
 import { newId, now } from '../lib/id';
@@ -17,6 +17,8 @@ import {
 //   POST   /matches/:id/accept   open -> accepted; SNAPSHOTS both handicaps
 //   POST   /matches/:id/cancel   creator cancels open/accepted -> cancelled
 //   POST   /matches/:id/decline  opponent backs out of accepted -> declined
+//   GET    /matches/feed         course feed (public matches at a course/day)
+//   POST   /matches/:id/visibility  creator flips private/public (pre-scorecard)
 //
 // The hidden-card lock (Phase 3) lives on the scorecard sub-resource, not here.
 export async function handleMatches(
@@ -39,6 +41,10 @@ export async function handleMatches(
     return listMine(auth, env);
   }
 
+  if (second === 'feed' && method === 'GET') {
+    return courseFeed(auth, env, request);
+  }
+
   const matchId = second;
 
   if (!action) {
@@ -50,6 +56,7 @@ export async function handleMatches(
   if (action === 'tee' && method === 'POST') return setTee(auth, env, matchId, request);
 
   if (method === 'POST') {
+    if (action === 'visibility') return setVisibility(auth, env, matchId, request);
     if (action === 'nudge') return nudge(auth, env, matchId);
     if (action === 'accept') return accept(auth, env, matchId);
     if (action === 'cancel') return cancel(auth, env, matchId);
@@ -155,6 +162,12 @@ async function create(auth: AuthContext, request: Request, env: Env): Promise<Re
     return error('hcp_range_min must be <= hcp_range_max', 400);
   }
 
+  // Visibility (optional; defaults to private). Public matches surface in the
+  // course feed once they're being played.
+  const visibility = (body.visibility === undefined || body.visibility === null)
+    ? 'private'
+    : requireEnum(body.visibility, VISIBILITIES, 'visibility');
+
   // Direct challenge: when opponent_id is present the match is pre-addressed to
   // one player and starts as 'pending' (they accept/decline) instead of 'open'.
   const opponent_id = optionalString(body.opponent_id, 'opponent_id', 64);
@@ -176,11 +189,11 @@ async function create(auth: AuthContext, request: Request, env: Env): Promise<Re
   await env.DB.prepare(
     `INSERT INTO matches
        (id, creator_id, opponent_id, status, course_name, tee_color, tee_id, play_date, play_time,
-        match_type, stakes, hcp_range_min, hcp_range_max, creator_handicap, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        match_type, stakes, hcp_range_min, hcp_range_max, creator_handicap, visibility, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     id, auth.userId, opponent_id ?? null, status, course_name, tee_color, tee_id, play_date, play_time,
-    match_type, stakes, hcp_range_min, hcp_range_max, creator?.handicap ?? null, ts, ts
+    match_type, stakes, hcp_range_min, hcp_range_max, creator?.handicap ?? null, visibility, ts, ts
   ).run();
 
   if (opponent_id) {
@@ -230,10 +243,11 @@ async function getOne(auth: AuthContext, env: Env, matchId: string): Promise<Res
   ).bind(matchId).first<Record<string, unknown>>();
   if (!match) return error('Match not found', 404);
 
-  // Visible if the caller is a participant, or it's still an open match anyone
-  // could accept. (Scorecard contents are gated separately in Phase 3.)
+  // Visible if the caller is a participant, an open match anyone could accept, or
+  // a public match (surfaced via the course feed — players + result, read-only).
+  // (Scorecard contents are gated separately in Phase 3.)
   const isParticipant = match.creator_id === auth.userId || match.opponent_id === auth.userId;
-  if (!isParticipant && match.status !== 'open') {
+  if (!isParticipant && match.status !== 'open' && match.visibility !== 'public') {
     return error('Match not found', 404);
   }
 
@@ -432,6 +446,94 @@ async function decline(auth: AuthContext, env: Env, matchId: string): Promise<Re
   await setStatus(env, matchId, 'declined');
   const updated = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first();
   return json(updated);
+}
+
+// ── Visibility (creator flips private/public) ────────────────────────────────
+// POST /matches/:id/visibility { visibility } — creator only. Allowed until a
+// scorecard is in (you can't retroactively expose a result mid-play), and never
+// on a finished/cancelled match.
+async function setVisibility(auth: AuthContext, env: Env, matchId: string, request: Request): Promise<Response> {
+  const match = await env.DB.prepare('SELECT * FROM matches WHERE id = ?')
+    .bind(matchId).first<Record<string, any>>();
+  if (!match) return error('Match not found', 404);
+  if (match.creator_id !== auth.userId) return error('Only the creator can change visibility', 403);
+
+  const open = match.status === 'open' || match.status === 'pending' ||
+    match.status === 'accepted' || match.status === 'in_progress';
+  if (!open) return error(`Cannot change visibility on a ${match.status} match`, 409);
+  // Once either card is in, the result is forming — lock visibility so it can't
+  // be flipped after play has started.
+  if (match.creator_scorecard_id || match.opponent_scorecard_id) {
+    return error('Scores are in — visibility is locked', 409);
+  }
+
+  const body = await parseBody(request);
+  const visibility = requireEnum(body.visibility, VISIBILITIES, 'visibility');
+  await env.DB.prepare('UPDATE matches SET visibility = ?, updated_at = ? WHERE id = ?')
+    .bind(visibility, now(), matchId).run();
+  const updated = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first();
+  return json(updated);
+}
+
+// ── Course feed ──────────────────────────────────────────────────────────────
+// GET /matches/feed?course=<name>&date=<YYYY-MM-DD> — the day's PUBLIC activity
+// at a course: matches being played (accepted/in_progress) and finished
+// (completed). Live matches first, then completed; private matches never appear.
+// Open matches (no opponent yet) aren't "being played", so they're excluded.
+async function courseFeed(auth: AuthContext, env: Env, request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const course = (url.searchParams.get('course') ?? '').trim();
+  if (!course) return error('course is required', 400);
+  const dateParam = url.searchParams.get('date');
+  const date = (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) ? dateParam : now().slice(0, 10);
+
+  const { results } = await env.DB.prepare(
+    `SELECT m.id, m.course_name, m.play_date, m.play_time, m.match_type, m.status,
+            m.result, m.match_progression, m.creator_id, m.opponent_id,
+            cu.first_name AS creator_first_name, cu.last_name AS creator_last_name,
+            cu.profile_photo_url AS creator_photo_url,
+            ou.first_name AS opponent_first_name, ou.last_name AS opponent_last_name,
+            ou.profile_photo_url AS opponent_photo_url
+       FROM matches m
+       JOIN users cu ON cu.id = m.creator_id
+       LEFT JOIN users ou ON ou.id = m.opponent_id
+      WHERE m.visibility = 'public' AND m.course_name = ? AND m.play_date = ?
+        AND m.status IN ('accepted', 'in_progress', 'completed')
+      ORDER BY (m.status = 'completed') ASC, m.play_time ASC, m.created_at ASC
+      LIMIT 100`
+  ).bind(course, date).all<Record<string, any>>();
+
+  const name = (f: unknown, l: unknown): string | null => {
+    const n = [f, l].filter((s) => typeof s === 'string' && (s as string).trim()).join(' ').trim();
+    return n || null;
+  };
+  const rows = (results ?? []).map((m) => {
+    // Surface just the final delta string ("3 & 2") for completed matches; never
+    // the full hole-by-hole progression in the feed.
+    let final_delta: string | null = null;
+    if (m.status === 'completed' && m.match_progression) {
+      try { final_delta = JSON.parse(m.match_progression)?.final_delta ?? null; } catch { /* ignore */ }
+    }
+    return {
+      id: m.id,
+      course_name: m.course_name,
+      play_date: m.play_date,
+      play_time: m.play_time,
+      match_type: m.match_type,
+      status: m.status,
+      result: m.result,
+      final_delta,
+      creator_id: m.creator_id,
+      opponent_id: m.opponent_id,
+      creator_name: name(m.creator_first_name, m.creator_last_name) ?? 'A golfer',
+      opponent_name: name(m.opponent_first_name, m.opponent_last_name) ?? 'Opponent',
+      creator_photo_url: m.creator_photo_url ?? null,
+      opponent_photo_url: m.opponent_photo_url ?? null,
+      // Whether the viewer is one of the two players (so the client can label it).
+      is_mine: m.creator_id === auth.userId || m.opponent_id === auth.userId,
+    };
+  });
+  return json({ matches: rows });
 }
 
 async function setStatus(env: Env, matchId: string, status: string): Promise<void> {
