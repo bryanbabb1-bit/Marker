@@ -1,10 +1,21 @@
-// Push-notification helpers. CRITICAL: this module must never throw at import
-// time — it's pulled in by the ROOT layout, and a throw there makes Expo Router
-// drop the root layout (and its <ClerkProvider>), which surfaces as the cryptic
-// "useAuth outside ClerkProvider". So we lazy-`require` the native modules INSIDE
-// guarded functions instead of importing them at the top.
+// Push-notification helpers. Must be SAFE on a build that lacks the
+// expo-notifications native module (e.g. the pre-notifications dev client):
+// requiring 'expo-notifications' there eagerly loads ExpoPushTokenManager and
+// throws, which expo reports to the dev overlay even when caught. So we PROBE
+// for the native module first and no-op when it's absent — no require, no error.
+
+function notificationsAvailable(): boolean {
+  try {
+    const core = require('expo-modules-core');
+    if (typeof core.requireOptionalNativeModule !== 'function') return false;
+    return !!core.requireOptionalNativeModule('ExpoPushTokenManager');
+  } catch {
+    return false;
+  }
+}
 
 export function configureNotifications() {
+  if (!notificationsAvailable()) return;
   try {
     const Notifications = require('expo-notifications');
     Notifications.setNotificationHandler({
@@ -15,11 +26,12 @@ export function configureNotifications() {
         shouldSetBadge: false,
       }),
     });
-  } catch { /* native module absent/incompatible — ignore */ }
+  } catch { /* ignore */ }
 }
 
-// Ask permission and return the Expo push token, or null on denial/unsupported.
+// Ask permission and return the Expo push token, or null when unsupported/denied.
 export async function registerForPush(): Promise<string | null> {
+  if (!notificationsAvailable()) return null;
   try {
     const Notifications = require('expo-notifications');
     const Constants = require('expo-constants').default ?? require('expo-constants');
