@@ -33,7 +33,7 @@ export default function SettingsScreen() {
           setNotifOn(true);
         } else {
           setNotifOn(false);
-          Alert.alert('Not enabled', 'Allow notifications for Quell in iOS Settings, then try again. (Requires the notifications build.)');
+          Alert.alert('Not enabled', 'Allow notifications for Foretera in iOS Settings, then try again. (Requires the notifications build.)');
         }
       } catch {
         setNotifOn(false);
@@ -50,7 +50,7 @@ export default function SettingsScreen() {
   };
 
   const confirmSignOut = () => {
-    Alert.alert('Sign out', 'Sign out of Quell?', [
+    Alert.alert('Sign out', 'Sign out of Foretera?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
     ]);
@@ -123,7 +123,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.row}>
             <Ionicons name="information-circle-outline" size={20} color={c.muted} />
-            <Text style={styles.rowLabel}>Quell</Text>
+            <Text style={styles.rowLabel}>Foretera</Text>
             <Text style={styles.rowAction}>v{version}</Text>
           </View>
         </View>

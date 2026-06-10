@@ -35,11 +35,11 @@ export default function OnboardingScreen() {
     let ImagePicker: typeof import('expo-image-picker') | null = null;
     try { ImagePicker = require('expo-image-picker'); } catch { ImagePicker = null; }
     if (!ImagePicker?.launchImageLibraryAsync) {
-      Alert.alert('Update needed', 'Photo upload activates once you install the latest Quell build.');
+      Alert.alert('Update needed', 'Photo upload activates once you install the latest Foretera build.');
       return;
     }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Allow photos', 'Enable photo access for Quell in iOS Settings to add a picture.'); return; }
+    if (!perm.granted) { Alert.alert('Allow photos', 'Enable photo access for Foretera in iOS Settings to add a picture.'); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (res.canceled || !res.assets?.[0]) return;
     setUploading(true);
@@ -84,7 +84,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false}>
-        <Text style={styles.brand}>Welcome to Quell</Text>
+        <Text style={styles.brand}>Welcome to Foretera</Text>
         <Text style={styles.sub}>A couple of details so we can match you up.</Text>
 
         <TouchableOpacity style={styles.avatarWrap} onPress={pickPhoto} disabled={uploading} activeOpacity={0.85}>

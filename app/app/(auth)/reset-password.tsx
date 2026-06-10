@@ -72,6 +72,9 @@ export default function ResetPasswordScreen() {
             onChangeText={setNewPassword}
             secureTextEntry={!showNew}
             autoComplete="new-password"
+            textContentType="newPassword"
+            autoCorrect={false}
+            spellCheck={false}
             returnKeyType="next"
             autoFocus
           />
@@ -93,6 +96,9 @@ export default function ResetPasswordScreen() {
             onChangeText={setConfirmPassword}
             secureTextEntry={!showConfirm}
             autoComplete="new-password"
+            textContentType="newPassword"
+            autoCorrect={false}
+            spellCheck={false}
             returnKeyType="done"
             onSubmitEditing={handleReset}
           />

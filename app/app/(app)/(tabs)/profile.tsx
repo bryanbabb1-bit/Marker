@@ -37,11 +37,11 @@ export default function ProfileScreen() {
     let ImagePicker: typeof import('expo-image-picker') | null = null;
     try { ImagePicker = require('expo-image-picker'); } catch { ImagePicker = null; }
     if (!ImagePicker?.launchImageLibraryAsync) {
-      Alert.alert('Update needed', 'Photo upload activates once you install the latest Quell build.');
+      Alert.alert('Update needed', 'Photo upload activates once you install the latest Foretera build.');
       return;
     }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Allow photos', 'Enable photo access for Quell in iOS Settings to set a picture.'); return; }
+    if (!perm.granted) { Alert.alert('Allow photos', 'Enable photo access for Foretera in iOS Settings to set a picture.'); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (res.canceled || !res.assets?.[0]) return;
     setUploading(true);

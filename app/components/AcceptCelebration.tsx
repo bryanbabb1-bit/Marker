@@ -41,7 +41,7 @@ export function AcceptCelebration({ onDone }: { onDone: () => void }) {
       <Animated.View style={[styles.badge, mark]}>
         <Ionicons name="checkmark" size={48} color={c.onAccent} />
       </Animated.View>
-      <Animated.Text style={[styles.brand, mark]}>Quell</Animated.Text>
+      <Animated.Text style={[styles.brand, mark]}>Foretera</Animated.Text>
       <Text style={styles.sub}>Match accepted</Text>
     </Animated.View>
   );

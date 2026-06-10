@@ -108,7 +108,7 @@ export default function SignUpScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <Text style={styles.brand}>Quell</Text>
+          <Text style={styles.brand}>Foretera</Text>
           <Text style={styles.stepTitle}>Check your email</Text>
           <Text style={styles.stepSubtitle}>We sent a code to {email.trim()}</Text>
 
@@ -163,7 +163,7 @@ export default function SignUpScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <Text style={styles.brand}>Quell</Text>
+        <Text style={styles.brand}>Foretera</Text>
         <Text style={styles.tagline}>Create your account.</Text>
 
         <TextInput
@@ -173,7 +173,10 @@ export default function SignUpScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          autoCorrect={false}
+          spellCheck={false}
           keyboardType="email-address"
+          textContentType="emailAddress"
           autoComplete="email"
           returnKeyType="next"
         />
@@ -186,6 +189,9 @@ export default function SignUpScreen() {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             autoComplete="new-password"
+            textContentType="newPassword"
+            autoCorrect={false}
+            spellCheck={false}
             returnKeyType="done"
             onSubmitEditing={handleSignUp}
           />
@@ -216,7 +222,7 @@ export default function SignUpScreen() {
         </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
-          Quell is a scorecard and match-discovery tool, not a wagering service. Play by your
+          Foretera is a scorecard and match-discovery tool, not a wagering service. Play by your
           club's rules and post honest scores.
         </Text>
       </ScrollView>

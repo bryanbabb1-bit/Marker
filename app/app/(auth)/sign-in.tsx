@@ -199,7 +199,7 @@ export default function SignInScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <Text style={styles.brand}>Quell</Text>
+          <Text style={styles.brand}>Foretera</Text>
 
           <Text style={styles.stepTitle}>{strategyLabel}</Text>
           <Text style={styles.stepSubtitle}>{hint}</Text>
@@ -268,7 +268,7 @@ export default function SignInScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <Text style={styles.brand}>Quell</Text>
+        <Text style={styles.brand}>Foretera</Text>
         <Text style={styles.tagline}>Post a match. Settle the score.</Text>
 
         <TextInput
@@ -278,7 +278,10 @@ export default function SignInScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          autoCorrect={false}
+          spellCheck={false}
           keyboardType="email-address"
+          textContentType="emailAddress"
           autoComplete="email"
           returnKeyType="next"
         />
@@ -291,6 +294,9 @@ export default function SignInScreen() {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             autoComplete="current-password"
+            textContentType="password"
+            autoCorrect={false}
+            spellCheck={false}
             returnKeyType="done"
             onSubmitEditing={handleSignIn}
           />

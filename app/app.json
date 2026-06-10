@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Quell",
+    "name": "Foretera",
     "slug": "quell",
     "version": "0.1.0",
     "orientation": "default",
@@ -27,7 +27,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Quell uses your photos to set a profile picture."
+          "photosPermission": "Foretera uses your photos to set a profile picture."
         }
       ],
       [
