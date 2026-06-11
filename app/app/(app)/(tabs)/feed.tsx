@@ -153,8 +153,8 @@ export default function FeedScreen() {
         {!loading && course && rows.length === 0 && !error && (
           <EmptyState
             icon="newspaper-outline"
-            title="Nothing public yet"
-            message={`No public matches at ${course} ${onToday ? 'today' : 'on this day'}. Set a match to Public and it shows here.`}
+            title="Quiet out there"
+            message={`No public matches at ${course} ${onToday ? 'today' : 'on this day'}. Post one as Public and put it on the board.`}
           />
         )}
 

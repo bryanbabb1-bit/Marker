@@ -11,6 +11,14 @@ export interface Favorite {
   photo_url: string | null;
 }
 
+// One result in a rivalry series (viewer's perspective; newest first).
+export interface SeriesResult {
+  outcome: 'win' | 'loss' | 'tie';
+  final_delta: string | null;
+  course_name: string;
+  completed_at: string | null;
+}
+
 // Public player profile (GET /players/:id).
 export interface PlayerProfile {
   user_id: string;
@@ -24,6 +32,8 @@ export interface PlayerProfile {
   played: number;
   win_pct: number;
   head_to_head: { wins: number; losses: number; ties: number };
+  series: SeriesResult[];      // your last results vs them (≤5, newest first)
+  last_match: SeriesResult | null;
   is_me: boolean;
 }
 
@@ -57,6 +67,9 @@ export interface Match {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  // Stamped when each player OPENS score entry (pre-Settle tension display).
+  creator_scoring_at?: string | null;
+  opponent_scoring_at?: string | null;
   // Present on the get-one (match detail) response; derived server-side.
   creator_name?: string;
   opponent_name?: string | null;

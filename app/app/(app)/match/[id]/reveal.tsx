@@ -37,6 +37,8 @@ export default function RevealScreen() {
   const [done, setDone] = useState(false); // past the last hole → final + stats
   const [paused, setPaused] = useState(false);
   const [smashSeen, setSmashSeen] = useState(false); // win-smash overlay plays once
+  // Milestone: current win streak, fetched once the Settle finishes on a win.
+  const [streak, setStreak] = useState<number | null>(null);
 
   const { width: winW } = useWindowDimensions();
   const railRef = useRef<ScrollView>(null);
@@ -113,15 +115,36 @@ export default function RevealScreen() {
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [loading, holes.length, done, paused, step, progress]);
 
-  // Per-hole haptic tick (and a stronger tap when the viewer wins the hole).
+  // Haptic CHOREOGRAPHY — the hand should feel the story before the eyes read
+  // it. Per hole: light tick (halve/lost), medium (you win it). Overrides, in
+  // priority order: the closeout hole SLAMS (heavy), a lead flip THUNKS (heavy),
+  // reaching all-square from behind/ahead taps medium.
   const lastTick = useRef(0);
   useEffect(() => {
     if (loading || done || !current) return;
     if (lastTick.current === step) return;
     lastTick.current = step;
-    if (current.winner === mySide) haptics.medium();
+    const prev = holes[step - 2]; // undefined on hole 1
+    const prevDelta = prev?.creator_delta ?? 0;
+    const curDelta = current.creator_delta;
+    const isCloseout = data?.progression?.decided_on_hole === current.hole;
+    const leadFlip = prevDelta !== 0 && curDelta !== 0 && Math.sign(prevDelta) !== Math.sign(curDelta);
+    const backToSquare = prevDelta !== 0 && curDelta === 0;
+    if (isCloseout) haptics.heavy();
+    else if (leadFlip) haptics.heavy();
+    else if (backToSquare) haptics.medium();
+    else if (current.winner === mySide) haptics.medium();
     else haptics.light();
-  }, [step, current, done, loading, mySide]);
+  }, [step, current, done, loading, mySide, holes, data]);
+
+  // Fetch the streak once the Settle lands on a win (participants only) — fuels
+  // the milestone banner. Best-effort.
+  useEffect(() => {
+    if (!done || outcome !== 'win' || isSpectator || streak !== null) return;
+    api.getMyRecord()
+      .then((r) => setStreak(r.current_streak.type === 'win' ? r.current_streak.count : 0))
+      .catch(() => setStreak(0));
+  }, [done, outcome, isSpectator, streak, api]);
 
   // Win celebration when we reach the final screen.
   const celebrated = useRef(false);
@@ -210,7 +233,7 @@ export default function RevealScreen() {
           <Pressable hitSlop={12} onPress={() => router.back()} style={styles.iconBtn}>
             <Ionicons name="close" size={26} color={colors.text} />
           </Pressable>
-          <Text style={styles.topCaption}>{done ? 'Final' : `Hole ${current?.hole ?? ''} · ${step}/${holes.length}`}</Text>
+          <Text style={styles.topCaption}>{done ? 'The Settle · Final' : `The Settle · Hole ${current?.hole ?? ''} · ${step}/${holes.length}`}</Text>
           {!done ? (
             <Pressable hitSlop={12} onPress={() => setPaused((p) => !p)} style={styles.iconBtn}>
               <Ionicons name={paused ? 'play' : 'pause'} size={24} color={colors.text} />
@@ -295,6 +318,19 @@ export default function RevealScreen() {
           </Pressable>
         ) : (
           <ScrollView style={styles.flex} contentContainerStyle={styles.finalScroll} showsVerticalScrollIndicator={false}>
+            {!isSpectator && outcome === 'win' && (streak ?? 0) >= 3 && (
+              <Animated.View entering={FadeInUp.duration(420)} style={styles.milestone}>
+                <Ionicons name="flame" size={22} color={colors.gold} />
+                <View style={styles.milestoneMid}>
+                  <Text style={styles.milestoneTitle}>{streak} straight wins</Text>
+                  <Text style={styles.milestoneSub}>The heater is real. Keep it rolling.</Text>
+                </View>
+                <Pressable hitSlop={10} onPress={shareResult} accessibilityRole="button" accessibilityLabel="Share your streak">
+                  <Ionicons name="share-outline" size={20} color={colors.gold} />
+                </Pressable>
+              </Animated.View>
+            )}
+            <DramaCard holes={holes} decidedOn={data.progression.decided_on_hole} colors={colors} styles={styles} />
             <RoundStats
               holes={holes} parByHole={parByHole} mySide={mySide}
               myName={myName} theirName={theirName}
@@ -385,6 +421,68 @@ function HoleSide({ name, gross, net, strokes, won, you, stepKey }: {
         <Text style={styles.netMuted}>no stroke</Text>
       )}
     </View>
+  );
+}
+
+// ── The Drama Meter ──────────────────────────────────────────────────────────
+// The progression already contains the story — surface it. Lead changes, holes
+// all square, how late it was decided → one verdict line, like a broadcast
+// graphic. A true classic gets the gold treatment.
+function dramaFor(holes: HoleResult[], decidedOn: number | null): { verdict: string; detail: string; classic: boolean } {
+  let leadChanges = 0, squareHoles = 0;
+  let prev = 0;
+  let leader: number = 0; // sign of the current leader, 0 = nobody yet
+  for (const h of holes) {
+    const d = h.creator_delta;
+    // "All square" only counts when a lead was ERASED — the opening holes
+    // before anyone leads aren't drama.
+    if (d === 0 && prev !== 0) squareHoles++;
+    const s = Math.sign(d);
+    if (s !== 0 && leader !== 0 && s !== leader) leadChanges++;
+    if (s !== 0) leader = s;
+    prev = d;
+  }
+  const total = holes.length;
+  const lastDelta = Math.abs(prev);
+  const wentDistance = decidedOn == null || decidedOn >= total;
+  const tightFinish = wentDistance && lastDelta <= 1;
+  const earlyKill = decidedOn != null && decidedOn <= total - 4;
+
+  // leader === 0 after the loop ⇔ the delta was NEVER non-zero (every hole halved).
+  if (leader === 0 && total > 0) {
+    return { verdict: 'Dead heat', detail: 'Every hole halved — neither player ever led', classic: false };
+  }
+  if (leadChanges >= 3 && tightFinish) {
+    return { verdict: 'Instant classic', detail: `${leadChanges} lead changes · decided on the last hole`, classic: true };
+  }
+  if (tightFinish) {
+    return { verdict: 'Down to the wire', detail: `${squareHoles} holes all square · settled on ${total === 18 ? '18' : 'the last'}`, classic: leadChanges >= 2 };
+  }
+  if (leadChanges >= 3) {
+    return { verdict: 'A brawl', detail: `${leadChanges} lead changes before it broke`, classic: false };
+  }
+  if (earlyKill) {
+    return { verdict: 'Wire to wire', detail: `Closed out on ${decidedOn} — never in doubt`, classic: false };
+  }
+  if (leadChanges === 0 && squareHoles <= 2) {
+    return { verdict: 'One-way traffic', detail: 'The leader never blinked', classic: false };
+  }
+  return { verdict: 'A grind', detail: `${squareHoles} holes all square · ${leadChanges} lead ${leadChanges === 1 ? 'change' : 'changes'}`, classic: false };
+}
+
+function DramaCard({ holes, decidedOn, colors, styles }: {
+  holes: HoleResult[]; decidedOn: number | null; colors: Palette; styles: ReturnType<typeof makeStyles>;
+}) {
+  const d = useMemo(() => dramaFor(holes, decidedOn), [holes, decidedOn]);
+  if (holes.length === 0) return null; // forfeit/empty progression — no story to tell
+  return (
+    <Animated.View entering={FadeIn.duration(420)} style={[styles.dramaCard, d.classic && styles.dramaClassic]}>
+      <Ionicons name={d.classic ? 'trophy' : 'pulse'} size={18} color={d.classic ? colors.gold : colors.muted} />
+      <View style={styles.dramaMid}>
+        <Text style={[styles.dramaVerdict, d.classic && styles.dramaVerdictGold]}>{d.verdict}</Text>
+        <Text style={styles.dramaDetail}>{d.detail}</Text>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -532,6 +630,26 @@ function makeStyles(c: Palette) {
     finalScroll: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
     statsWrap: { gap: spacing.md },
     decided: { ...t.body, color: c.muted, textAlign: 'center' },
+    // Milestone banner — championship gold, reserved for streaks/belts.
+    milestone: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      backgroundColor: c.goldGlow, borderWidth: 1, borderColor: c.gold,
+      borderRadius: radius.lg, padding: spacing.md,
+    },
+    milestoneMid: { flex: 1, gap: 2 },
+    milestoneTitle: { ...t.heading, color: c.gold },
+    milestoneSub: { ...t.caption, color: c.muted },
+    // Drama meter — the match's story in one verdict line.
+    dramaCard: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      backgroundColor: c.surface, borderWidth: 1, borderColor: c.border,
+      borderRadius: radius.lg, padding: spacing.md,
+    },
+    dramaClassic: { borderColor: c.gold, backgroundColor: c.goldGlow },
+    dramaMid: { flex: 1, gap: 2 },
+    dramaVerdict: { ...t.heading },
+    dramaVerdictGold: { color: c.gold },
+    dramaDetail: { ...t.caption, color: c.muted },
     statsCard: { backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
     statsTitle: { ...t.overline, color: c.muted },
     statRow: { flexDirection: 'row', justifyContent: 'space-between' },

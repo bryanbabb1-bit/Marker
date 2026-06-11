@@ -57,6 +57,7 @@ export async function handleMatches(
 
   if (method === 'POST') {
     if (action === 'visibility') return setVisibility(auth, env, matchId, request);
+    if (action === 'scoring-started') return scoringStarted(auth, env, matchId);
     if (action === 'nudge') return nudge(auth, env, matchId);
     if (action === 'accept') return accept(auth, env, matchId);
     if (action === 'cancel') return cancel(auth, env, matchId);
@@ -280,7 +281,8 @@ async function getOne(auth: AuthContext, env: Env, matchId: string): Promise<Res
   if (!isParticipant) {
     for (const k of ['creator_handicap', 'opponent_handicap', 'stakes', 'match_progression',
                      'creator_scorecard_id', 'opponent_scorecard_id', 'score_reminder_at',
-                     'forfeit_warning_at', 'nudge_last_sent_at'] as const) {
+                     'forfeit_warning_at', 'nudge_last_sent_at', 'creator_scoring_at',
+                     'opponent_scoring_at'] as const) {
       match[k] = null;
     }
   }
@@ -513,6 +515,23 @@ async function decline(auth: AuthContext, env: Env, matchId: string): Promise<Re
     `${me?.first_name?.trim() || 'Your opponent'} ${okChallenge ? 'declined your challenge' : 'backed out of your match'} at ${match.course_name}.`, { matchId });
   const updated = await env.DB.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first();
   return json(updated);
+}
+
+// ── Scoring started (pre-Settle tension) ─────────────────────────────────────
+// POST /matches/:id/scoring-started — fire-and-forget stamp when a participant
+// opens score entry, so the other player's screen can show "X is entering
+// scores…". Display-only.
+async function scoringStarted(auth: AuthContext, env: Env, matchId: string): Promise<Response> {
+  const match = await env.DB.prepare('SELECT creator_id, opponent_id, status FROM matches WHERE id = ?')
+    .bind(matchId).first<Record<string, any>>();
+  if (!match) return error('Match not found', 404);
+  const isCreator = match.creator_id === auth.userId;
+  const isOpponent = match.opponent_id === auth.userId;
+  if (!isCreator && !isOpponent) return error('Not your match', 403);
+  if (match.status !== 'accepted' && match.status !== 'in_progress') return json({ ok: false });
+  const col = isCreator ? 'creator_scoring_at' : 'opponent_scoring_at';
+  await env.DB.prepare(`UPDATE matches SET ${col} = ? WHERE id = ?`).bind(now(), matchId).run();
+  return json({ ok: true });
 }
 
 // ── Visibility (creator flips private/public) ────────────────────────────────

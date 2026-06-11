@@ -188,6 +188,8 @@ export default function MatchDetailScreen() {
   };
   const mySubmitted = isCreator ? !!match.creator_scorecard_id : !!match.opponent_scorecard_id;
   const oppSubmitted = isCreator ? !!match.opponent_scorecard_id : !!match.creator_scorecard_id;
+  // The other player opened score entry (but hasn't posted) — tension tease.
+  const otherScoringAt = isCreator ? match.opponent_scoring_at : match.creator_scoring_at;
   const scoringStage =
     match.status === 'accepted' || match.status === 'in_progress' || match.status === 'completed';
   // A completed match missing a card was won by forfeit (no hole-by-hole reveal).
@@ -353,10 +355,10 @@ export default function MatchDetailScreen() {
               </Text>
             ) : (
               <>
-                <Text style={styles.note}>Both cards are in. See how it played out hole by hole.</Text>
+                <Text style={styles.note}>Both cards are in. The result is sealed — watch it play out.</Text>
                 <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/reveal`)}>
                   <Ionicons name="trophy-outline" size={18} color={colors.surface} />
-                  <Text style={styles.primaryText}>View the reveal</Text>
+                  <Text style={styles.primaryText}>Watch the Settle</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/scorecard`)}>
                   <Text style={styles.secondaryText}>Head-to-head scorecard</Text>
@@ -366,6 +368,23 @@ export default function MatchDetailScreen() {
           ) : !mySubmitted ? (
             <>
               <Text style={styles.note}>Enter your hole-by-hole gross scores. They stay hidden until your opponent submits too.</Text>
+              {/* Pre-Settle tension: they're in their card right now. */}
+              {!oppSubmitted && otherScoringAt && (
+                <View style={styles.statusRow}>
+                  <Ionicons name="create-outline" size={16} color={colors.accent} />
+                  <Text style={[styles.statusText, { color: colors.accent }]}>
+                    {firstName(otherName)} is entering scores…
+                  </Text>
+                </View>
+              )}
+              {oppSubmitted && (
+                <View style={styles.statusRow}>
+                  <Ionicons name="lock-closed" size={16} color={colors.accent} />
+                  <Text style={[styles.statusText, { color: colors.accent }]}>
+                    {firstName(otherName)}'s card is in. Yours seals the Settle.
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push(`/(app)/match/${match.id}/score`)}>
                 <Ionicons name="create-outline" size={18} color={colors.surface} />
                 <Text style={styles.primaryText}>Enter your scores</Text>
@@ -376,9 +395,18 @@ export default function MatchDetailScreen() {
               <View style={styles.statusRow}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.fairway} />
                 <Text style={styles.statusText}>
-                  Submitted{oppSubmitted ? '' : ` — waiting on the ${isCreator ? 'opponent' : 'creator'} to finish.`}
+                  {oppSubmitted ? 'Submitted' : `Card's in. Waiting on ${firstName(otherName)}.`}
                 </Text>
               </View>
+              {/* Pre-Settle tension: they've opened score entry but haven't posted. */}
+              {!oppSubmitted && otherScoringAt && (
+                <View style={styles.statusRow}>
+                  <Ionicons name="create-outline" size={16} color={colors.accent} />
+                  <Text style={[styles.statusText, { color: colors.accent }]}>
+                    {firstName(otherName)} is entering scores…
+                  </Text>
+                </View>
+              )}
               {!oppSubmitted && (
                 <TouchableOpacity style={styles.secondaryBtn} disabled={nudging || nudged} onPress={nudgeOpponent}>
                   <Ionicons name={nudged ? 'checkmark' : 'notifications-outline'} size={18} color={colors.fairway} />
@@ -559,7 +587,7 @@ function PlayerLine({ userId, name, photoUrl, you, index, ch, isFav, onStar }: {
       </TouchableOpacity>
       {!you ? (
         <TouchableOpacity hitSlop={8} onPress={() => { haptics.select(); onStar(); }}>
-          <Ionicons name={isFav ? 'star' : 'star-outline'} size={20} color={isFav ? colors.accent : colors.muted} />
+          <Ionicons name={isFav ? 'star' : 'star-outline'} size={20} color={isFav ? colors.gold : colors.muted} />
         </TouchableOpacity>
       ) : null}
     </View>

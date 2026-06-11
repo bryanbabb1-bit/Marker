@@ -131,7 +131,7 @@ export default function RecordScreen() {
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyNote}>No completed matches yet. Win one and it shows up here.</Text>
+          <Text style={styles.emptyNote}>Nothing on the record yet. Settle one and it lands here.</Text>
         )}
 
         {/* Favorites */}
@@ -201,7 +201,7 @@ export default function RecordScreen() {
                 <Text style={styles.lbPct}>{e.win_pct}%</Text>
                 {e.is_me ? <View style={styles.lbStar} /> : (
                   <TouchableOpacity style={styles.lbStar} hitSlop={8} onPress={() => { haptics.select(); toggleFav(e.user_id, { name: e.name, handicap: null }); }}>
-                    <Ionicons name={isFavorite(e.user_id) ? 'star' : 'star-outline'} size={16} color={isFavorite(e.user_id) ? colors.accent : colors.muted} />
+                    <Ionicons name={isFavorite(e.user_id) ? 'star' : 'star-outline'} size={16} color={isFavorite(e.user_id) ? colors.gold : colors.muted} />
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>

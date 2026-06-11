@@ -30,6 +30,8 @@ export interface Palette {
   lossGlow: string;      // translucent loss wash
   halve: string;         // halved hole / neutral result
   halveGlow: string;     // translucent halve wash
+  gold: string;          // CHAMPIONSHIP gold — belts, streaks, milestones, favorites
+  goldGlow: string;      // translucent gold wash
   onAccent: string;      // text/icon on top of an accent fill
 
   // ── Legacy golf aliases (back-compat — point at the dark tokens above) ──
@@ -68,6 +70,7 @@ export const PALETTES: { id: string; name: string; colors: Palette }[] = [
       accent: '#36E27D', accentDark: '#1FB85F', accentGlow: 'rgba(54,226,125,0.14)', onAccent: '#06231A',
       win: '#36E27D', winGlow: 'rgba(54,226,125,0.16)',
       loss: '#FF5A5F', lossGlow: 'rgba(255,90,95,0.14)', halve: '#E6EAF0', halveGlow: 'rgba(230,234,240,0.10)',
+      gold: '#F2C14E', goldGlow: 'rgba(242,193,78,0.16)',
     }),
   },
   {
@@ -82,6 +85,7 @@ export const PALETTES: { id: string; name: string; colors: Palette }[] = [
       // halve must stay visible on the light canvas (#F3F7F3) — a pale silver
       // chip there fails WCAG 3:1 for UI components.
       loss: '#D8433D', lossGlow: 'rgba(216,67,61,0.12)', halve: '#8A99A6', halveGlow: 'rgba(138,153,166,0.28)',
+      gold: '#B8860B', goldGlow: 'rgba(184,134,11,0.14)',
     }),
   },
 ];

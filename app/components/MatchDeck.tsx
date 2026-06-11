@@ -15,7 +15,7 @@ import { haptics } from '@/lib/haptics';
 import { Avatar } from '@/components/ui';
 import { spacing, radius, typography, type Palette } from '@/constants/theme';
 
-const SAVE_YELLOW = '#F5C518'; // a saved/starred match fills yellow (not theme green)
+// Favorites use the palette's championship gold (colors.gold) — not brand green.
 
 const creatorName = (m: DiscoveryMatch) =>
   [m.creator_first_name, m.creator_last_name].filter(Boolean).join(' ') || 'A golfer';
@@ -129,8 +129,8 @@ export function MatchDeck({ matches, onAccept, onPass, onReload }: {
     return (
       <View style={styles.empty}>
         <Ionicons name="golf-outline" size={48} color={colors.muted} />
-        <Text style={styles.emptyTitle}>You're all caught up</Text>
-        <Text style={styles.emptyHint}>No more open matches right now.</Text>
+        <Text style={styles.emptyTitle}>The tee sheet is empty</Text>
+        <Text style={styles.emptyHint}>Nobody's posted a match you can take. Be the problem — post one.</Text>
         <TouchableOpacity style={styles.reloadBtn} onPress={onReload}>
           <Ionicons name="refresh" size={18} color={colors.fairway} />
           <Text style={styles.reloadText}>Refresh</Text>
@@ -186,7 +186,7 @@ export function MatchDeck({ matches, onAccept, onPass, onReload }: {
           accessibilityRole="button" accessibilityLabel={faved ? 'Remove player from favorites' : 'Favorite this player'}
           accessibilityState={{ selected: faved }}
         >
-          <Ionicons name={faved ? 'star' : 'star-outline'} size={26} color={faved ? SAVE_YELLOW : colors.muted} />
+          <Ionicons name={faved ? 'star' : 'star-outline'} size={26} color={faved ? colors.gold : colors.muted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -318,7 +318,7 @@ function makeStyles(colors: Palette) {
   ctrlFill: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   passCtrl: { borderColor: colors.loss },
   saveCtrl: { borderColor: colors.border },
-  saveCtrlOn: { borderColor: SAVE_YELLOW },
+  saveCtrlOn: { borderColor: colors.gold },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg },
   emptyTitle: { ...typography.heading, color: colors.muted, textAlign: 'center' },

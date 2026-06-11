@@ -128,6 +128,8 @@ export function useApi() {
       },
 
       // Scorecards
+      startScoring: (matchId: string) =>
+        call<{ ok: boolean }>(`/matches/${matchId}/scoring-started`, { method: 'POST' }),
       getMatchHoles: (matchId: string) =>
         call<HolesSetup>(`/matches/${matchId}/holes`),
       submitScorecard: (matchId: string, holeScores: HoleEntry[]) =>

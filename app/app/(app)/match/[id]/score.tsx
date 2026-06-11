@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
@@ -59,6 +59,15 @@ export default function ScoreEntryScreen() {
   }, [api, id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Tell the server we're entering scores (once) so the opponent's match screen
+  // can show "X is entering scores…". Fire-and-forget — purely atmospheric.
+  const announcedScoring = useRef(false);
+  useEffect(() => {
+    if (!id || announcedScoring.current) return;
+    announcedScoring.current = true;
+    api.startScoring(id).catch(() => {});
+  }, [id, api]);
 
   const bump = (hole: number, delta: number) => {
     haptics.select();

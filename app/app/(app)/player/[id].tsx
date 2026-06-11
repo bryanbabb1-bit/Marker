@@ -82,7 +82,7 @@ export default function PlayerScreen() {
           </View>
           {!p.is_me ? (
             <Pressable hitSlop={10} onPress={() => { haptics.select(); toggleFav(p.user_id, { name: p.name, handicap: p.handicap }); }}>
-              <Ionicons name={starred ? 'star' : 'star-outline'} size={26} color={starred ? c.accent : c.muted} />
+              <Ionicons name={starred ? 'star' : 'star-outline'} size={26} color={starred ? c.gold : c.muted} />
             </Pressable>
           ) : null}
         </View>
@@ -98,21 +98,67 @@ export default function PlayerScreen() {
           <Text style={styles.note}>{p.played} completed {p.played === 1 ? 'match' : 'matches'}</Text>
         </View>
 
-        {!p.is_me ? (
-          <View style={styles.statsCard}>
-            <Text style={styles.cardTitle}>Your record vs {p.name.split(' ')[0]}</Text>
-            <View style={styles.statRow}>
-              <Stat value={h2h.wins} label="Won" tone="accent" styles={styles} />
-              <Stat value={h2h.losses} label="Lost" tone="loss" styles={styles} />
-              <Stat value={h2h.ties} label="Halved" tone="muted" styles={styles} />
+        {/* THE RIVALRY — the series presented like a tale of the tape. Whoever
+            leads the series holds the belt (gold). */}
+        {!p.is_me ? (() => {
+          const first = p.name.split(' ')[0];
+          const playedH2h = h2h.wins + h2h.losses + h2h.ties;
+          const youLead = h2h.wins > h2h.losses;
+          const theyLead = h2h.losses > h2h.wins;
+          const beltLine = playedH2h === 0 ? null
+            : youLead ? 'You hold the belt'
+            : theyLead ? `${first} holds the belt`
+            : 'Series even — belt vacant';
+          const lm = p.last_match;
+          const lastLine = lm
+            ? `Last: ${lm.outcome === 'tie' ? 'halved' : lm.outcome === 'win' ? `you won${lm.final_delta ? ` ${lm.final_delta}` : ''}` : `${first} won${lm.final_delta ? ` ${lm.final_delta}` : ''}`} at ${lm.course_name}`
+            : null;
+          return (
+            <View style={[styles.statsCard, playedH2h > 0 && !theyLead && youLead ? styles.rivalryGold : null]}>
+              <Text style={styles.cardTitle}>The rivalry</Text>
+              {playedH2h === 0 ? (
+                <Text style={styles.note}>No history yet. Someone has to throw the first punch.</Text>
+              ) : (
+                <>
+                  <View style={styles.tallyRow}>
+                    <View style={styles.tallySide}>
+                      <Text style={[styles.tallyNum, youLead && styles.tallyLead]}>{h2h.wins}</Text>
+                      <Text style={styles.tallyName}>You</Text>
+                    </View>
+                    <Text style={styles.tallyDash}>–</Text>
+                    <View style={styles.tallySide}>
+                      <Text style={[styles.tallyNum, theyLead && styles.tallyLead]}>{h2h.losses}</Text>
+                      <Text style={styles.tallyName}>{first}</Text>
+                    </View>
+                  </View>
+                  {beltLine ? (
+                    <View style={styles.beltRow}>
+                      <Ionicons name="trophy" size={15} color={playedH2h > 0 && (youLead || theyLead) ? c.gold : c.muted} />
+                      <Text style={[styles.beltText, (youLead || theyLead) && styles.beltTextGold]}>{beltLine}</Text>
+                      {h2h.ties > 0 ? <Text style={styles.note}> · {h2h.ties} halved</Text> : null}
+                    </View>
+                  ) : null}
+                  {p.series.length > 0 ? (
+                    <View style={styles.seriesRow}>
+                      {p.series.map((s, i) => (
+                        <View key={i} style={[styles.seriesChip,
+                          s.outcome === 'win' ? styles.seriesWin : s.outcome === 'loss' ? styles.seriesLoss : styles.seriesTie]}>
+                          <Text style={styles.seriesChipText}>{s.outcome === 'win' ? 'W' : s.outcome === 'loss' ? 'L' : 'H'}</Text>
+                        </View>
+                      ))}
+                      <Text style={styles.seriesHint}>recent first</Text>
+                    </View>
+                  ) : null}
+                  {lastLine ? <Text style={styles.note}>{lastLine}</Text> : null}
+                </>
+              )}
             </View>
-            {h2h.wins + h2h.losses + h2h.ties === 0 ? <Text style={styles.note}>You haven't played yet.</Text> : null}
-          </View>
-        ) : null}
+          );
+        })() : null}
 
         {!p.is_me ? (
           <Button
-            title={blocked ? 'Blocked' : `Challenge ${p.name.split(' ')[0]}`}
+            title={blocked ? 'Blocked' : h2h.wins + h2h.losses + h2h.ties > 0 ? 'Run it back' : `Challenge ${p.name.split(' ')[0]}`}
             icon="flash"
             disabled={blocked}
             onPress={() => { haptics.light(); router.push(`/(app)/create?opponent_id=${p.user_id}&opponent_name=${encodeURIComponent(p.name)}`); }}
@@ -170,6 +216,24 @@ function makeStyles(c: Palette) {
     tone_muted: { color: c.muted },
     tone_text: { color: c.text },
     note: { ...t.caption, color: c.muted },
+    // Rivalry — tale-of-the-tape tally + the belt.
+    rivalryGold: { borderColor: c.gold },
+    tallyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
+    tallySide: { alignItems: 'center', minWidth: 84 },
+    tallyNum: { ...t.scoreBig, fontSize: 44, color: c.muted },
+    tallyLead: { color: c.gold },
+    tallyName: { ...t.overline, color: c.muted },
+    tallyDash: { ...t.scoreBig, fontSize: 30, color: c.border },
+    beltRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    beltText: { ...t.bodySemiBold, color: c.muted },
+    beltTextGold: { color: c.gold },
+    seriesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+    seriesChip: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    seriesWin: { backgroundColor: c.win },
+    seriesLoss: { backgroundColor: c.loss },
+    seriesTie: { backgroundColor: c.halve },
+    seriesChipText: { ...t.caption, color: c.bg, fontWeight: '800' },
+    seriesHint: { ...t.caption, color: c.muted, fontSize: 11, marginLeft: 4 },
     safetyRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.lg, marginTop: spacing.sm },
     safetyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
     safetyText: { ...t.caption, color: c.muted },
