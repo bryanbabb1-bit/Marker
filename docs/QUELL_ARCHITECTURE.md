@@ -1,291 +1,155 @@
-# MATCH PLAY — Architecture & Planning Document
+# FORETERA — Architecture (as built)
 
-**Handoff doc for build (Quad Code).** This captures every decision landed on so far. Start here.
-
----
-
-## 1. Project Overview
-
-Quell is a golf match discovery and scorecard verification app for club members. It evolves the Quell scorecard photo engine into a matchmaking platform: the photo engine is the settlement layer, and a Tinder-style discovery + in-app messaging layer sits on top.
-
-**Core thesis:** A golfer can post their name out there looking for a match — stake, handicap range, course, tees, date/time — and another member can swipe to accept. The two players do NOT need to be in the same group. They each play their round, each photograph their scorecard, and the app reads both cards, applies handicaps, and determines the winner with a hole-by-hole reveal animation.
-
-**Trial path:** Start closed-beta with Bryan's group + Prairie Highlands regulars (Saturday rounds and men's league rounds where you're not paired with the person you want action against). If it sticks, it becomes Prairie's matchmaking / community-engagement tool, with a possible path to packaging for other clubs.
+_Living document — updated on every meaningful push (see changelog at the
+bottom). Repo `bryanbabb1-bit/Quell`; internal codename "quell" survives in the
+bundle id, slug, and folder names. The original pre-build plan (Node + Postgres
++ Firebase + scorecard OCR) is in git history; what follows is what actually
+runs._
 
 ---
 
-## 2. Strategic Positioning
+## 1. What Foretera is
 
-This fits the side-hustle filter cleanly: Bryan is the customer, near-zero operating cost if it stalls, he owns the code, club-specific rather than consumer-viral. The defensible moat is the club's existing member network — not virality among strangers.
+A golf head-to-head **match-play network**: post an open match (course, date,
+format, handicap window) → another member accepts → both enter scores privately
+→ a server-enforced hidden lock keeps each card sealed until both are in → the
+engine settles the match net (WHS) and the players watch a hole-by-hole
+**reveal**. Around that loop: a per-course **club board** (open invites, live
+matches, finals, club pulse), career **records** (rivalries, course form,
+milestones, leaderboards), match-scoped **messaging** (text + GIFs), and the
+**club network** layer that monetizes it (see `UX_CLUB_NETWORK_STRATEGY.md`
+and `PRICING.md`).
 
-**Community angle:** Beyond side action, the matchmaking drives member engagement and helps new members find games and meet people. That's the pitch to Prairie management if/when the trial succeeds.
+Positioning: an exclusive golf network (Black + Gold "Members" brand), NOT a
+scorecard app — and explicitly NOT a wagering service. Stakes are display-only;
+no money ever moves through the app.
 
----
+## 2. Stack
 
-## 3. Hard Constraints & Rules
-
-1. **NOT a betting app.** The app never touches money. It displays match results and stakes for context only. All settlement happens off-platform (Venmo/cash/text between players). This classification boundary is non-negotiable and drives multiple design decisions below.
-2. **Cross-platform from day one.** iOS *and* Android, both stores. An iPhone user must be able to play against an Android user. No single-OS limitation. → React Native.
-3. **Hidden scorecards.** Neither player can see the other's scorecard until BOTH have been submitted. This is core to fairness and must be enforced server-side.
-4. **Scorecard photo engine must handle real-world variation:** rotated cards, gross vs. net, birdie circles, X's / strikethroughs, ambiguous digits, and side-game rows that must be IGNORED (skins, presses, etc.).
-5. **Handicap range filtering.** Players set a +/- range around their own handicap (e.g., a 5 sets +5/-5 → will play anyone from scratch to a 10). Only compatible matches surface in discovery.
-6. **In-app messaging.** Accept/decline and settlement coordination happen inside the app — cleaner than exposing phone numbers or email upfront.
-7. **Validation & guidance layer.** Onboarding must (a) establish that this is a results/verification tool, not a wagering platform, and (b) teach users how to mark a scorecard so the engine reads it cleanly.
-
----
-
-## 4. Tech Stack
-
-### Frontend
-- **React Native** (iOS + Android, shared logic) — reuses Quell React experience; clean path to both stores.
-- Navigation: React Navigation (or Expo Router if going Expo-managed).
-- Camera: Expo Camera / React Native Vision Camera for scorecard capture.
-- Animation: **Reanimated** for the hole-by-hole match progression reveal (de-facto RN standard for complex animation).
-- State: Zustand (lightweight) or Redux Toolkit.
-
-### Backend
-- **Node.js + Express** API.
-- **PostgreSQL** for relational data (users, matches, scorecards, messages) — match settlement and the hidden-card lock need transactional integrity, so this is the system of record.
-- **Firebase** for real-time messaging (Firestore) + push notifications (FCM for Android, APNs via FCM for iOS).
-- Photo storage: Firebase Storage or AWS S3.
-
-### Photo / OCR engine
-- Client-side scorecard OCR reusing the Quell vision logic (ML Kit / TensorFlow.js).
-- Server-side validation confirms integrity before results are computed and revealed.
-
-### Hosting (kept lean — no prior preference to honor)
-- Backend: Vercel (serverless Node) or a small VPS (DigitalOcean/Railway).
-- Managed PostgreSQL: Supabase, Railway, or Neon.
-- Real-time + push: Firebase.
-- Start lean, scale only if it takes off.
-
-> Note: Supabase is a viable single-vendor alternative (Postgres + auth + storage + realtime in one). Decision deferred — Postgres + Firebase split is the documented default, but consolidating on Supabase is worth a look during build if the Firebase/Postgres seam gets annoying.
-
----
-
-## 5. Data Schema (PostgreSQL)
-
-### users
-| field | type | notes |
+| Layer | Tech | Notes |
 |---|---|---|
-| id | UUID PK | |
-| phone_number | text unique | auth + identity |
-| email | text nullable | |
-| first_name | text | |
-| last_name | text | |
-| handicap | float | GHIN; manual entry in V1 |
-| profile_photo_url | text nullable | |
-| created_at / updated_at | timestamptz | |
+| App | Expo / React Native, Expo Router, TypeScript | One codebase, both stores; EAS builds; OTA for JS |
+| Animation | Reanimated + Gesture Handler | Swipe deck, reveal choreography, celebrations |
+| State | Zustand stores (`app/store/`) | user, courses (session-cached), favorites, results badge, theme |
+| Auth | Clerk (`@clerk/clerk-expo` + `@clerk/backend`) | JWT verified at the edge; token refresh + 401 retry in `lib/api.ts` |
+| API | Cloudflare Worker (`api/src/index.ts`) | Route modules in `api/src/routes/` |
+| Data | Cloudflare D1 (SQLite) | System of record; migrations in `api/migrations/` |
+| Files | Cloudflare R2 (`quell-photos`) | Profile photos via `POST /photo` |
+| Push | Expo Push | Token registered on `users`; never returned to clients |
+| GIFs | Giphy (proxied) | `GET /gifs` keeps the key server-side |
+| Cron | Workers scheduled (hourly) | Score reminders → forfeit; reminder state on `matches` |
 
-### matches
-| field | type | notes |
+Why: near-zero cost when idle, automatic scale when busy — the right shape for
+a club that's loud on Saturday and silent on Tuesday.
+
+## 3. Data model (D1, migrations 0001–0014)
+
+- **users** — identity, Handicap Index (manual, GHIN-ready) + `handicap_updated_at`,
+  photo, `home_course_id`, timezone, push token (write-only; clients get `push_enabled`).
+- **clubs** *(0014 — the monetization object)* — name, crest_url, primary_color,
+  contact, **`status: network | prospect`**, joined_at. 1:1 with courses today;
+  multi-course clubs merge by repointing `courses.club_id`.
+- **courses → tees → holes** — real USGA data (CR/Slope/par per tee incl.
+  front/back splits, per-hole par + stroke index). Imported from GolfCourseAPI
+  (`scripts/import_courses.mjs`); 11 KC-metro courses seeded.
+- **matches** — creator/opponent, status
+  (`open|pending|accepted|in_progress|completed|declined|cancelled|expired`),
+  course/tee **per player** (`tee_id` / `opponent_tee_id`), date/time, format
+  (`front_nine|back_nine|eighteen`), `visibility (private|public)`, stakes
+  (display only), hcp window, **handicap snapshots** (creator at post, opponent
+  at accept), scorecard ids, result, `match_progression` JSON, scoring-started
+  stamps, reminder/forfeit/nudge stamps.
+- **scorecards** — hole-by-hole gross per player (`[{hole, gross}]`), unique per
+  (match, player).
+- **messages** — match-scoped, text or `gif_url` (allowlisted Giphy CDN).
+- **favorites / blocks / reports** — social graph + safety; blocks filter both
+  directions everywhere (discovery, feed, challenges, accept).
+
+## 4. Invariants the server enforces
+
+1. **Hidden-entry lock** — no API response contains the opponent's card until
+   both scorecards exist; the reveal endpoint refuses until `status='completed'`.
+2. **Handicap snapshots** — locked onto the match row at post/accept; profile
+   changes never rewrite a settled match. Null snapshot ⇒ scratch (0.0).
+3. **Per-player tees** — each side's Course Handicap and stroke allocation come
+   from THEIR tee (`(HI × Slope/113) + (CR − Par)`, strokes by that tee's SI
+   order; nine-hole matches use the nine's segment ratings).
+4. **Full-round settle** — the engine plays all holes (true gross totals) but
+   locks result/`final_delta` at the closeout hole ("3 & 2").
+5. **Guarded transitions** — status changes are conditional UPDATEs
+   (`WHERE status IN (...)`), so races (double-accept, cancel-vs-settle,
+   cron-vs-player) can't stomp a terminal state.
+6. **Privacy projections** — non-participants get display-safe match rows
+   (no handicaps/stakes/progression/scorecard ids); public+completed matches
+   are the deliberate spectator surface (reveal + scorecard).
+7. **Not a betting app** — stakes are a display string end to end.
+
+## 5. Surfaces (5-tab navigation)
+
+| Tab | What it is |
+|---|---|
+| **Discovery** | Swipe deck of compatible open matches (handicap-window filtered, home-course soft preference) — *action* |
+| **Feed** | The club's room: course switcher, gold **Foretera Club** badge (network clubs), club pulse strip, "Looking for a game" open invites with **accept-in-place**, date-browsable Now Playing / Final Results — *community* |
+| **My Matches** | The caller's matches across all states |
+| **Record** | Career page: W–L–H hero, streaks/bests, milestones, rivalries (+ rematch), course form, recent results, favorites, Home/Global leaderboard |
+| **Profile** | Identity, index, home club; **Settings lives behind the header menu (hamburger), not a tab** |
+
+Detail stack: match detail, score entry, reveal (participant + spectator
+modes), shared scorecard, player profile, messages, create/challenge (modal),
+onboarding, settings.
+
+## 6. Club network layer (the business)
+
+`clubs.status` drives everything (strategy doc A1 — **shipped**):
+- `network` → gold badge on the board today; next: crest/colors, club
+  leaderboard scope, staff pulse dashboard (A3).
+- `prospect` → next: the "ask your pro/GM" card + share-with-club lead-gen with
+  demand tracking (A2), then "claim your club" → Stripe checkout flipping the
+  flag (A4). Club billing happens OFF-app (B2B SaaS — no app-store cut);
+  pricing in `PRICING.md` ($149/mo · $1,490/yr · founders $990/yr).
+
+## 7. Ops & conventions
+
+- **Deploy:** `npx wrangler deploy` from `api/` (Worker
+  `match-play-api.bryan-babb1.workers.dev`). App JS ships by reload/OTA; icon,
+  splash, and native modules need an EAS build.
+- **Migrations:** local via `wrangler d1 migrations apply match-play --local`;
+  **remote via `wrangler d1 execute --remote --file=...`** — the remote
+  migrations tracker is out of sync; never `migrations apply --remote`.
+  Changing an enum CHECK requires a full table rebuild (see 0012).
+- **Seeds:** `api/seeds/` (idempotent, `DELETE … LIKE` first).
+  `scripts/gen_big_seed.mjs` builds the 52-match network demo (8 clubs, all
+  lifecycle states, real tees + pars, scratch-settle progressions). Generate
+  via `cmd /c "node … > file"` (PowerShell `>` writes UTF-16, which wrangler
+  rejects).
+- **QA:** `powershell -File qa.ps1` (api tsc + vitest engine suite + app tsc) on
+  every push, plus the testing agents in `.claude/agents/` per the matrix in
+  `AGENTS.md` (release-qa always; contract-checker on API changes;
+  engine-tester on scoring changes; ux-auditor on screen changes).
+- **Hard-won client rules:** never top-level-import a native module in a route
+  file (drops the route/boot); Clerk `getToken` never in effect deps (use a
+  ref); no stacked iOS Modals; theme tokens only (no hex in screens).
+- **Brand assets:** `store-assets/generate_black_gold.ps1` regenerates
+  icon/splash/adaptive + store images from the F-pin mark (champagne→bronze on
+  `#0C0C0E`).
+
+## 8. Roadmap pointers
+
+Sequenced in `UX_CLUB_NETWORK_STRATEGY.md`: A2 prospect prompt → A3 club payoff
+→ A4 claim path → B1 cold-start liquidity → B4 Feed/Discovery sharpening → B5
+rematch on the reveal. Plus: reveal premium redesign (Phase 2), reschedule flow
+(decisions locked), photo-verification trust layer (the original Quell OCR) as
+a later anti-cheat option, GHIN auto-lookup.
+
+---
+
+## Changelog (meaningful pushes)
+
+| Date | HEAD | What changed |
 |---|---|---|
-| id | UUID PK | |
-| creator_id | UUID FK → users | |
-| opponent_id | UUID FK → users, nullable | null until accepted |
-| status | enum | open, accepted, in_progress, completed, declined, cancelled |
-| course_name | text | (course_id later) |
-| tee_color | text | white/blue/black/etc. |
-| play_date | date | |
-| play_time | time nullable | |
-| match_type | enum | front_nine, back_nine, eighteen |
-| stakes | numeric nullable | DISPLAY ONLY — never processed |
-| hcp_range_min | int | creator's +/- floor |
-| hcp_range_max | int | creator's +/- ceiling |
-| creator_scorecard_id | UUID FK → scorecards, nullable | |
-| opponent_scorecard_id | UUID FK → scorecards, nullable | |
-| result | enum nullable | creator_wins, opponent_wins, tie |
-| match_progression | jsonb nullable | hole-by-hole deltas for animation |
-| created_at / updated_at / completed_at | timestamptz | |
-
-### scorecards
-| field | type | notes |
-|---|---|---|
-| id | UUID PK | |
-| match_id | UUID FK → matches | |
-| player_id | UUID FK → users | |
-| photo_url | text | |
-| parsed_data | jsonb | gross per hole, raw OCR |
-| net_scores | jsonb | computed with handicap |
-| confidence | float | OCR confidence; low → manual review |
-| submitted_at | timestamptz | |
-| verified_at | timestamptz nullable | after server validation |
-
-### messages
-| field | type | notes |
-|---|---|---|
-| id | UUID PK | |
-| match_id | UUID FK → matches | |
-| sender_id | UUID FK → users | |
-| body | text | |
-| read | bool default false | |
-| created_at | timestamptz | |
-
-> Messaging is mirrored in Firestore for real-time delivery; Postgres holds the durable record.
-
----
-
-## 6. The Hidden-Scorecard Lock (critical)
-
-Enforced server-side, NOT client-side:
-
-- When a player submits, store the scorecard but DO NOT return the opponent's card in any API response until `creator_scorecard_id` AND `opponent_scorecard_id` are both non-null and verified.
-- Each player's "waiting" screen shows only: *"Your card is in. Waiting on [opponent]."*
-- The reveal endpoint becomes available only once both cards are verified. At that point both cards + the computed `match_progression` are returned together.
-- This prevents either side from seeing the other's score and back-solving what they need.
-
----
-
-## 7. Match Determination Logic
-
-**Handicap capture timing:** Both players' handicaps are snapshotted into the `matches` row at acceptance time, so a later handicap change can't retroactively alter a completed match.
-
-**Strokes:** Difference between the two handicaps allocated across holes per standard stroke-index distribution (e.g., 5 vs. 12 → the 12 gets 7 strokes on the 7 hardest holes). Front/back nine matches scale the allocation to the nine being played.
-
-**Scoring format:** Match play — compare NET score hole by hole; lower net wins the hole; tie carries the running delta. Final result expressed as "Wins 2 Up," "Even," etc.
-
-**Gross vs. net:** OCR flags how the card is marked. If gross, the engine applies handicap to derive net. If net is already written, the engine validates rather than re-applies.
-
-### match_progression JSON shape
-```json
-{
-  "holes": [
-    { "hole": 1, "creator_gross": 4, "creator_net": 4, "opponent_gross": 5, "opponent_net": 4, "winner": "tie", "cumulative": "Even" },
-    { "hole": 2, "creator_gross": 5, "creator_net": 5, "opponent_gross": 4, "opponent_net": 4, "winner": "opponent", "cumulative": "1 Down" }
-  ],
-  "final_result": "opponent_wins",
-  "final_delta": "2 Down"
-}
-```
-`cumulative` is written from the match creator's perspective and drives the reveal animation labels.
-
----
-
-## 8. Scorecard OCR & Validation
-
-**Variations to handle:**
-- Rotated photos → auto-rotate / orientation detection.
-- Birdie circles, X's, strikethroughs → recognized as valid score markings.
-- **Side-game rows ignored** → detect and skip rows labeled skins/press/bets; only the main score row counts.
-- Ambiguous digits → if confidence < threshold, flag and prompt re-submission rather than guessing.
-
-**Validation rules:**
-- All 9 / 18 holes present.
-- Per-hole score within sane bounds (≈0–13).
-- Both cards from the same course.
-- Submitted within 24h of `play_date` (prevents stale entries).
-- On failure → clear error + re-shoot guidance, never a silent wrong result.
-
----
-
-## 9. User Flows
-
-### Onboarding
-Phone sign-up (SMS verify) → name + handicap (manual GHIN entry V1) → optional photo → norms screen ("verification tool, not a wagering platform; settle outside the app") → Discovery.
-
-### Create a match
-Post a Match → course, date, time, tees → match type (F9 / B9 / 18) → stakes (display only) → handicap range +/- → public-to-club or invite link → posted as `open`.
-
-### Discover & accept (swipe)
-Discovery feed shows compatible open matches as cards: name, handicap, course, date/time, stakes, range. Swipe right = interested, left = skip. On mutual interest the in-app message thread opens; creator confirms → `accepted`. Either party can decline.
-
-### Play & submit
-`in_progress` → each player plays independently → Submit Scorecard → camera capture → "Waiting on opponent." Server runs validation on each card as it arrives.
-
-### Reveal & animation
-Once both cards verified → Result Reveal. Reanimated walks hole by hole showing each score and the running delta (Even → 1 Up → 2 Up …), then declares the winner. Result screen shows final result, both cards side by side, and a "Message Opponent" button pre-filled to coordinate settlement. → `completed`.
-
-### Messaging
-Available throughout the match lifecycle. Text chat scoped to a match, real-time via Firestore, push on new message / acceptance / opponent-submitted / result-ready.
-
----
-
-## 10. Match State Machine
-
-```
-open ──accept──▶ accepted ──both ready──▶ in_progress ──both cards verified──▶ completed (result)
-  │                  │
-  └──cancel──▶ cancelled    └──decline──▶ declined
-```
-
----
-
-## 11. V1 Scope (MVP) — explicit cuts
-
-1. Side games are detected only to be IGNORED — not scored.
-2. Manual handicap entry; no GHIN API yet.
-3. No ratings / Elo / reputation.
-4. No payment processing (by design).
-5. No calendar sync.
-6. No leaderboards.
-7. No hard club-membership gating (Prairie can gate later).
-
----
-
-## 12. Roadmap (post-trial)
-
-- GHIN API auto-lookup.
-- Optional side-game tracking + settlement, if demand appears.
-- Player ratings, win/loss history.
-- Course-specific all-time leaderboards (Prairie).
-- Calendar integration.
-- Admin/moderation dashboard for Prairie.
-- Engagement analytics (active players, popular times, new-member matchmaking).
-- Multi-club packaging.
-
----
-
-## 13. Project Structure
-
-```
-match-play/
-├── mobile/                       # React Native
-│   ├── src/
-│   │   ├── screens/              # Home, CreateMatch, Discovery,
-│   │   │                         #   ScorecardCapture, ResultReveal,
-│   │   │                         #   Messaging, Profile
-│   │   ├── components/           # MatchCard, HoleByHoleAnimation,
-│   │   │                         #   ScorecardViewer, MessageThread
-│   │   ├── hooks/                # useMatchDiscovery, useScorecardOCR, useMessaging
-│   │   ├── services/             # api, firebaseConfig, photoEngine, auth
-│   │   ├── store/                # matchStore, userStore
-│   │   └── types/
-│   └── app.json
-│
-├── backend/                      # Node + Express
-│   ├── src/
-│   │   ├── routes/               # auth, matches, users, scorecards, messages
-│   │   ├── controllers/
-│   │   ├── services/             # matchService (determination),
-│   │   │                         #   scorecardService (OCR/validate),
-│   │   │                         #   messageService, userService
-│   │   ├── db/                   # schema.sql, migrations
-│   │   ├── middleware/           # auth, errorHandler
-│   │   └── config/               # database, firebase
-│   └── server.ts
-│
-└── docs/
-    ├── MATCH_PLAY_ARCHITECTURE.md   # this file
-    ├── API_SPEC.md
-    ├── SCORECARD_FORMATS.md          # visual guide to valid markings
-    └── DEPLOYMENT.md
-```
-
----
-
-## 14. First Build Steps (suggested order for Quad)
-
-1. Scaffold the monorepo (`mobile/` + `backend/`) and the Postgres schema + migrations.
-2. Auth + user profile (phone sign-up, handicap).
-3. Match CRUD + discovery feed with handicap-range filtering.
-4. Swipe UI + accept/decline + match state machine.
-5. In-app messaging (Firestore) + push.
-6. Scorecard capture → OCR → server validation → **hidden-card lock**.
-7. Match determination + `match_progression` generation.
-8. Reveal animation (Reanimated).
-9. Onboarding/norms + scorecard marking guide.
-10. TestFlight + Play internal testing with the buddy group.
-
----
-
-*End of handoff. Open this in Quad and start from Section 14.*
+| 2026-06-12 | (this push) | Tabs 6→5 (Settings behind the header menu); testing agents (`.claude/agents/` + `AGENTS.md`); `PRICING.md`; white paper v1.1; this doc rewritten as-built |
+| 2026-06-12 | `e5da0db` | **Clubs model (A1)** — migration 0014, network/prospect flag, gold badge; accept-from-feed; 52-match seed across 8 clubs; Black + Gold icon/splash/store assets |
+| 2026-06-12 | `bb2bccf` | Feed → club board (open invites + pulse); Record → career page (rivals, course form, milestones, bests) |
+| 2026-06-10 | `c57a2e6` | Black + Gold "Members" rebrand; member-card discovery; home-course soft preference |
+| 2026-06-10 | `12e2880` | Full-review fix batch: status CHECK rebuild (0012), blocks/reports, account deletion, security projections |
+| earlier | — | See git history: per-player tees (0009), visibility + course feed (0011), GIFs (0010), forfeit cron (0008), real course data, Clerk/R2/push foundations |

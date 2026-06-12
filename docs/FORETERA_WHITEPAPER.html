@@ -345,12 +345,13 @@
     <tr><td><code>users</code></td><td>Identity, Handicap Index, photo, <code>home_course_id</code>, push token</td><td>Index entered manually (GHIN-ready)</td></tr>
     <tr><td><code>matches</code></td><td>Creator/opponent, status, course, per-player tees, format, visibility, stakes (display), handicap snapshots, result, progression</td><td>State machine: open → accepted → in&nbsp;progress → completed</td></tr>
     <tr><td><code>scorecards</code></td><td>Hole-by-hole gross per player</td><td>One per player per match; gated by the hidden-entry lock</td></tr>
-    <tr><td><code>courses → tees → holes</code></td><td>Par, stroke index, Course Rating, Slope, par per tee (incl. front/back nine splits)</td><td>Real USGA data; <code>courses.club_id</code> reserved for clubs</td></tr>
+    <tr><td><code>clubs</code></td><td>Name, crest, colors, contact, <strong><code>network</code> | <code>prospect</code> status</strong>, joined date</td><td>The monetization object — every course belongs to a club</td></tr>
+    <tr><td><code>courses → tees → holes</code></td><td>Par, stroke index, Course Rating, Slope, par per tee (incl. front/back nine splits)</td><td>Real USGA data; <code>courses.club_id</code> → <code>clubs</code></td></tr>
     <tr><td><code>messages</code></td><td>Match-scoped chat, optional GIF</td><td>Durable record in D1</td></tr>
     <tr><td><code>favorites · blocks</code></td><td>Starred opponents · safety</td><td>Drives "favorites only" + moderation</td></tr>
   </tbody>
 </table>
-<p class="muted">The schema already carries <code>courses.club_id</code> — reserved for the club layer described next. The course → tee → hole structure is built for nationwide scale from day one.</p>
+<p class="muted">The club layer described next is live on this schema. The course → tee → hole structure is built for nationwide scale from day one.</p>
 
 <h3>Fairness &amp; safety properties</h3>
 <div class="pills">
@@ -379,6 +380,9 @@
 </div>
 
 <h3>Network membership</h3>
+<div class="callout">
+  <strong>Status — shipped (June 2026):</strong> the club model is live in production. Every course is backed by a club record carrying <code>network</code> or <code>prospect</code> status; network boards wear a gold <em>Foretera&nbsp;Club</em> badge, and the anchor club is flagged for demos. The branded board, staff pulse dashboard, and the "ask your pro" prompt build directly on this flag.
+</div>
 <p>Every course is playable, but a course can be a <strong>network club</strong> — a paying member of the Foretera network. The distinction is what creates the sales motion:</p>
 <ul>
   <li><strong>In-network clubs</strong> get their crest and colors on the Feed, a verified badge in discovery, a members' leaderboard, and a pulse dashboard for staff. Their games surface first to their own members.</li>
@@ -404,13 +408,26 @@
   <li><strong>Network effects</strong> — cross-club challenges and regional leaderboards once multiple clubs are live.</li>
 </ol>
 
+<!-- ───────────────────────── PRICING ───────────────────────── -->
+<h2 id="pricing">Pricing</h2>
+<p class="lead">The club pays; the player plays free. Full strategy, comparables, and revenue math live in <code>docs/PRICING.md</code> — the headline:</p>
+<table>
+  <thead><tr><th>Offering</th><th>Monthly</th><th>Annual</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Club Network Membership</strong> — branded board, members' leaderboard, staff pulse, surface priority, onboarding kit</td><td>$149/mo</td><td><strong>$1,490/yr</strong> (2 months free)</td></tr>
+    <tr><td><strong>Founders rate</strong> — first 10 clubs, locked for life</td><td>$99/mo</td><td>$990/yr</td></tr>
+    <tr><td><strong>Players</strong> — posting, accepting, scoring, the reveal, records</td><td colspan="2"><strong>Free, always.</strong> An optional Member+ tier (~$39.99/yr of analytics and flair, never liquidity) arrives only after the network is dense.</td></tr>
+  </tbody>
+</table>
+<p class="muted">Anchor: incumbent club tournament software runs ~$3,500/yr. Club billing happens off-app (no app-store cut); player premium would ship as standard IAP.</p>
+
 <!-- ───────────────────────── ROADMAP ───────────────────────── -->
 <h2 id="roadmap">Roadmap</h2>
 <table>
   <thead><tr><th>Horizon</th><th>What ships</th></tr></thead>
   <tbody>
-    <tr><td><strong>Now</strong></td><td>Discovery, create/challenge, messaging, manual score entry, hidden-entry lock, WHS settlement + reveal, records &amp; leaderboards, course feed/pulse.</td></tr>
-    <tr><td><strong>Club layer</strong></td><td>Network-club status, club branding on the Feed, verified badges, staff pulse dashboard, the out-of-network "ask your pro" prompt.</td></tr>
+    <tr><td><strong>Now (live)</strong></td><td>Discovery, create/challenge, messaging, manual score entry, hidden-entry lock, WHS settlement + reveal, career records (rivalries, course form, milestones) &amp; leaderboards, the club board (open invites + accept-in-place + pulse), <strong>network-club status with the gold badge</strong>, 5-tab navigation, Black + Gold brand.</td></tr>
+    <tr><td><strong>Club layer (next)</strong></td><td>The out-of-network "ask your pro" prompt with demand tracking, club crest/colors on the board, the club leaderboard scope, staff pulse dashboard, the claim-your-club path → checkout.</td></tr>
     <tr><td><strong>Trust upgrades</strong></td><td>Scorecard <strong>photo verification</strong> (the original "Quell" OCR engine) as an optional anti-cheat layer; GHIN auto-lookup.</td></tr>
     <tr><td><strong>Competition</strong></td><td>Club ladders, leagues, events, and cross-club regional play on the same settlement engine.</td></tr>
   </tbody>
@@ -420,7 +437,7 @@
 
 <div class="footer">
   <p><strong style="font-family:var(--display)">FORETERA</strong> — Post a match. Settle the score.</p>
-  <p>White paper v1 · Black + Gold "Members" brand · Display type Plus Jakarta Sans, body Inter. This document is maintained in the repository at <code>docs/FORETERA_WHITEPAPER.html</code>. Print to PDF for a shareable deck.</p>
+  <p>White paper v1.1 (June 12, 2026 — club model shipped, pricing added) · Black + Gold "Members" brand · Display type Plus Jakarta Sans, body Inter. This document is maintained in the repository at <code>docs/FORETERA_WHITEPAPER.html</code> and updated on every meaningful push. Print to PDF for a shareable deck.</p>
   <p class="muted">Foretera is a scorecard and match-discovery tool, not a wagering service. The app never processes money; all settlement happens off-platform.</p>
 </div>
 

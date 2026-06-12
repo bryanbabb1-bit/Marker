@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { StyleSheet, Image } from 'react-native';
-import { Tabs } from 'expo-router';
+import { StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { haptics } from '@/lib/haptics';
 import { useApi } from '@/lib/useApi';
 import { useResultsStore, selectUnseenCount } from '@/store/useResultsStore';
 import { useColors } from '@/store/useThemeStore';
@@ -41,6 +42,19 @@ export default function TabsLayout() {
         // Foretera mark in the top-left of every tab header.
         headerLeft: () => (
           <Image source={require('../../../assets/icon.png')} style={styles.headerLogo} />
+        ),
+        // Settings lives behind the menu (tab bar stays at 5 — the surfaces
+        // members actually live in; Settings is low-frequency).
+        headerRight: () => (
+          <TouchableOpacity
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Menu"
+            style={styles.headerMenu}
+            onPress={() => { haptics.select(); router.push('/(app)/settings'); }}
+          >
+            <Ionicons name="menu" size={24} color={colors.text} />
+          </TouchableOpacity>
         ),
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, height: 88, paddingTop: 6 },
         tabBarLabelStyle: { fontFamily: fonts.bodyMed, fontSize: 11, letterSpacing: 0.2 },
@@ -85,17 +99,11 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} />,
-        }}
-      />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
   headerLogo: { width: 30, height: 30, borderRadius: 7, marginLeft: 16 },
+  headerMenu: { marginRight: 16 },
 });
