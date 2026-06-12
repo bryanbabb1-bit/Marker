@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Foretera — White Paper</title>
+<!--
+  Foretera white paper.
+  Brand: "Members" Black + Gold (see app/constants/theme.ts).
+  Type:  Display = Plus Jakarta Sans; body + numerals = Inter (tabular figures).
+  Self-contained: fonts load from Google Fonts with a system fallback, so the
+  file renders offline (just without the brand faces). Print to PDF for a deck.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* ── Foretera "Members" palette (exact tokens from theme.ts) ── */
+    --bg: #0C0C0E;
+    --surface: #151518;
+    --raised: #1F1F24;
+    --text: #F5F1E6;       /* warm ivory */
+    --muted: #A8A296;
+    --border: #2B2B30;
+    --accent: #D4B36A;     /* champagne gold */
+    --accent-dark: #B6934B;
+    --gold: #E8C87E;       /* championship gold */
+    --gold-glow: rgba(232,200,126,0.15);
+    --accent-glow: rgba(212,179,106,0.13);
+    --win: #46B17C;        /* W = green, on every theme */
+    --loss: #D26A5C;       /* L = red */
+    --live: #8FB3CC;       /* community / live = steel blue */
+    --navy: #050E1B;       /* deep brand navy (store assets / splash) */
+
+    --display: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, sans-serif;
+    --body: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 28px 120px; }
+
+  /* ── Typographic ramp (mirrors makeType in theme.ts) ── */
+  h1, h2, h3, h4 { font-family: var(--display); color: var(--text); letter-spacing: -0.02em; line-height: 1.15; }
+  h1 { font-weight: 800; font-size: 52px; margin: 0 0 8px; }
+  h2 { font-weight: 700; font-size: 30px; margin: 64px 0 12px; padding-top: 14px; }
+  h3 { font-weight: 600; font-size: 21px; margin: 34px 0 8px; }
+  h4 { font-weight: 600; font-size: 16px; margin: 24px 0 6px; color: var(--gold); letter-spacing: 0.02em; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { color: #FFF8E9; font-weight: 600; }
+  em { color: var(--muted); }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em; background: var(--raised); color: var(--gold);
+    padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border);
+  }
+  .muted { color: var(--muted); }
+  .overline {
+    font-family: var(--body); font-weight: 600; font-size: 12px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent);
+  }
+
+  /* ── Cover ── */
+  .cover {
+    min-height: 86vh; display: flex; flex-direction: column; justify-content: center;
+    border-bottom: 1px solid var(--border);
+    background:
+      radial-gradient(1200px 500px at 75% -5%, var(--accent-glow), transparent 60%),
+      linear-gradient(180deg, var(--navy) 0%, var(--bg) 70%);
+    margin: 0 -28px; padding: 0 28px;
+  }
+  .cover .inner { max-width: 860px; margin: 0 auto; width: 100%; }
+  .wordmark { display: flex; align-items: center; gap: 14px; margin-bottom: 40px; }
+  .mark {
+    width: 46px; height: 46px; border-radius: 12px; flex: none;
+    background: linear-gradient(150deg, var(--gold), var(--accent-dark));
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--display); font-weight: 800; font-size: 26px; color: var(--navy);
+    box-shadow: 0 8px 24px var(--gold-glow);
+  }
+  .wordmark .name { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: 0.02em; }
+  .cover h1 {
+    font-size: 64px;
+    background: linear-gradient(120deg, #FFF8E9 10%, var(--gold) 90%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .cover .tag { font-size: 22px; color: var(--text); max-width: 640px; margin-top: 4px; font-family: var(--display); font-weight: 500; }
+  .cover .sub { color: var(--muted); margin-top: 22px; max-width: 620px; }
+  .cover .meta { margin-top: 48px; display: flex; gap: 28px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+  .cover .meta b { color: var(--text); font-weight: 600; }
+
+  /* ── Pull / callout ── */
+  .lead { font-size: 19px; color: var(--text); line-height: 1.6; }
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--accent-glow);
+    padding: 16px 20px; border-radius: 0 12px 12px 0; margin: 24px 0; color: var(--text);
+  }
+  .callout.warn { border-left-color: var(--loss); background: rgba(210,106,92,0.10); }
+  .callout.win { border-left-color: var(--win); background: rgba(70,177,124,0.10); }
+
+  /* ── Cards ── */
+  .grid { display: grid; gap: 16px; margin: 24px 0; }
+  .grid.two { grid-template-columns: 1fr 1fr; }
+  .grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 22px;
+  }
+  .card h4 { margin-top: 0; }
+  .card p { margin-bottom: 0; color: var(--muted); font-size: 14.5px; }
+  .card .big { font-family: var(--display); font-weight: 800; font-size: 34px; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  ul, ol { margin: 0 0 18px; padding-left: 22px; }
+  li { margin: 6px 0; }
+  li::marker { color: var(--accent); }
+
+  /* ── Pills ── */
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+  .pill {
+    font-family: var(--body); font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em;
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--raised); color: var(--text);
+  }
+  .pill.gold { border-color: var(--accent); color: var(--gold); background: var(--accent-glow); }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-family: var(--display); font-weight: 600; color: var(--gold); font-size: 13px; letter-spacing: 0.03em; text-transform: uppercase; }
+  td code { font-size: 0.85em; }
+  tbody tr:hover { background: var(--raised); }
+
+  /* ── Architecture diagram (pure CSS/HTML) ── */
+  .diagram {
+    background: linear-gradient(180deg, var(--surface), var(--bg));
+    border: 1px solid var(--border); border-radius: 18px; padding: 28px; margin: 28px 0;
+  }
+  .layer { margin-bottom: 18px; }
+  .layer:last-child { margin-bottom: 0; }
+  .layer-label { font-family: var(--body); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .nodes { display: flex; gap: 12px; flex-wrap: wrap; }
+  .node {
+    flex: 1; min-width: 150px; background: var(--raised); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .node .t { font-family: var(--display); font-weight: 600; font-size: 15px; color: var(--text); }
+  .node .d { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .node.accent { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-glow); }
+  .flow { text-align: center; color: var(--accent); font-size: 20px; margin: 4px 0; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 56px 0; }
+
+  .footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); padding-top: 24px; margin-top: 64px; }
+
+  /* ── Print: collapse to clean light-on-dark deck pages ── */
+  @media print {
+    body { font-size: 12px; }
+    .cover { min-height: auto; padding-top: 40px; padding-bottom: 40px; }
+    h2 { page-break-after: avoid; }
+    .card, .diagram, table { page-break-inside: avoid; }
+    a { color: var(--accent); }
+  }
+  @media (max-width: 680px) {
+    .grid.two, .grid.three { grid-template-columns: 1fr; }
+    h1 { font-size: 38px; } .cover h1 { font-size: 44px; }
+    .nodes { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────── COVER ───────────────────────── -->
+<section class="cover">
+  <div class="inner">
+    <div class="wordmark">
+      <div class="mark">F</div>
+      <div class="name">FORETERA</div>
+    </div>
+    <div class="overline">White Paper · v1</div>
+    <h1>The club's match.</h1>
+    <p class="tag">A members' network for golf match play — discover an opponent, play your own round, and let the app settle the score hole by hole.</p>
+    <p class="sub">Foretera turns a club's existing membership into a living matchmaking network. Players find games across handicaps; clubs get an engagement engine and a branded presence on every screen their members touch.</p>
+    <div class="meta">
+      <span><b>Category</b> · Golf · Community · Sports tech</span>
+      <span><b>Platforms</b> · iOS &amp; Android</span>
+      <span><b>Status</b> · Closed beta → club rollout</span>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+
+<!-- ───────────────────────── SUMMARY ───────────────────────── -->
+<h2 id="summary">Executive summary</h2>
+<p class="lead">Most golf software treats the round as the product. Foretera treats the <strong>match</strong> as the product — and the <strong>club</strong> as the network that makes matches possible.</p>
+<p>A member posts an open match — course, tees, date, and a handicap range they'll play. Another member swipes to accept. The two don't have to be in the same group, or even tee off at the same time. Each plays their own round, enters their card, and Foretera applies World Handicap System math to reveal the winner hole by hole. No money ever moves through the app.</p>
+<p>The result is a two-sided product with a clean split of incentives: <strong>players</strong> get effortless games and a competitive record that follows them; <strong>clubs</strong> get member engagement, new-member onboarding, and a branded home inside an app their members open every weekend. This paper covers the product, the engine that settles matches fairly, the architecture that runs it at near-zero idle cost, and the club-network model that turns it into a business.</p>
+
+<div class="grid three">
+  <div class="card"><div class="big">2-sided</div><p>Players use it for free; clubs pay to join the network and brand their presence.</p></div>
+  <div class="card"><div class="big">WHS</div><p>Course-adjusted handicaps and stroke allocation, verified by an automated test suite.</p></div>
+  <div class="card"><div class="big">$0 idle</div><p>Serverless edge architecture — costs scale with play, not with calendar time.</p></div>
+</div>
+
+<!-- ───────────────────────── PROBLEM ───────────────────────── -->
+<h2 id="problem">The problem</h2>
+<p>Competitive club golf runs on informal games — but the friction is real:</p>
+<ul>
+  <li><strong>Finding a fair game is manual.</strong> Group texts, the bag room, "anyone want a game Saturday?" The right opponent at the right handicap is often a person you've never been paired with.</li>
+  <li><strong>Handicaps make it awkward.</strong> Working out strokes off the right tees, on the right nine, is error-prone and a recurring source of argument.</li>
+  <li><strong>You have to be in the same group.</strong> Traditional match play assumes you tee off together. Saturday rounds and men's-league pairings rarely cooperate.</li>
+  <li><strong>Clubs have no engagement layer.</strong> A club's roster is its most valuable asset, yet it sits in a CRM. Pros and GMs have no lightweight tool to drive play, welcome new members, or surface activity.</li>
+</ul>
+<p>Foretera removes the friction on the player side and hands the club a presence on the result.</p>
+
+<!-- ───────────────────────── WHAT IT IS ───────────────────────── -->
+<h2 id="product">What Foretera is</h2>
+<p>A cross-platform mobile app (iOS + Android) organized around six surfaces. The loop is deliberately short: <strong>post → accept → play → enter → reveal.</strong></p>
+
+<div class="grid two">
+  <div class="card">
+    <h4>Discovery</h4>
+    <p>A full-bleed, swipeable deck of open matches compatible with your handicap. Swipe right to accept, left to pass, star a creator to favorite them. Home course softly floats your club's games to the top.</p>
+  </div>
+  <div class="card">
+    <h4>Feed — the club board</h4>
+    <p>A single course's heartbeat: a live "pulse" (matches this week, players active, live now), open invites looking for a game, and the day's public results. This is the club's town square.</p>
+  </div>
+  <div class="card">
+    <h4>My Matches</h4>
+    <p>Every match you're in, by state — open, pending, in progress, completed. Archive finished ones; jump straight back into score entry or the reveal.</p>
+  </div>
+  <div class="card">
+    <h4>Record — your career page</h4>
+    <p>A broadcast-grade record: W–L–H, win %, current and best streaks, a five-match form guide, milestone badges, rivalries, per-course form, and home-course vs global leaderboards.</p>
+  </div>
+  <div class="card">
+    <h4>Create &amp; Challenge</h4>
+    <p>Post an open match or directly challenge a specific player. Pick course and tees, date, format (Front 9 / Back 9 / 18), public or private, and the handicap range you'll play.</p>
+  </div>
+  <div class="card">
+    <h4>The Match — messages &amp; reveal</h4>
+    <p>In-app messaging (with GIFs) to coordinate, hidden score entry, then a Reanimated hole-by-hole reveal that walks the running delta to the final result.</p>
+  </div>
+</div>
+
+<h3>The core loop, end to end</h3>
+<ol>
+  <li><strong>Post.</strong> A member creates a match — course, tees, date, format, and a +/- handicap range. It posts as <code>open</code>.</li>
+  <li><strong>Accept.</strong> A compatible member swipes right. Both players' handicap indexes are <em>snapshotted onto the match at acceptance</em>, so a later change can never alter a played result.</li>
+  <li><strong>Play.</strong> Each golfer plays their own round, on their own tees, whenever it suits them.</li>
+  <li><strong>Enter.</strong> Each enters their card hole by hole. Neither side can see the other's scores — the <strong>hidden-entry lock</strong> is enforced on the server.</li>
+  <li><strong>Reveal.</strong> Once both cards are in, the engine course-adjusts handicaps, allocates strokes, and plays the match back hole by hole: Even → 1 Up → 2 &amp; 1. Settle off-platform.</li>
+</ol>
+
+<div class="callout warn">
+  <strong>Not a betting app — by design.</strong> Foretera never touches money. Stakes are shown for context only; every settlement happens off-platform between players. This classification boundary is non-negotiable and shapes the data model and the UI throughout.
+</div>
+
+<!-- ───────────────────────── ENGINE ───────────────────────── -->
+<h2 id="engine">The fairness engine</h2>
+<p>The thing that makes Foretera trustworthy is that the math is <em>correct</em> and <em>tamper-resistant</em>. Two mechanisms carry that weight.</p>
+
+<h3>1 · World Handicap System course adjustment</h3>
+<p>A player's stored handicap is their <strong>Handicap Index</strong>. The engine never matches on raw index — it course-adjusts at determination time, per player, off the exact tee and segment each one actually played:</p>
+<div class="callout">
+  <strong>Course Handicap</strong> = round( Index × Slope ÷ 113 + (Course Rating − Par) )
+</div>
+<ul>
+  <li><strong>Pops = the difference</strong> between the two course handicaps. The lower handicap plays off scratch; the higher receives <code>(higher − lower)</code> strokes.</li>
+  <li><strong>Allocation</strong> follows stroke index — hardest holes first, wrapping past 18 for a second stroke — and uses <em>each player's own tee's</em> stroke index.</li>
+  <li><strong>Nines</strong> handicap correctly: a Front 9 or Back 9 match uses that nine's rating, slope, and par with the half index.</li>
+  <li><strong>Plus handicaps</strong> (e.g. <code>+1.2</code>) are stored negative and flow through naturally — a plus golfer's course handicap goes below zero, increasing the strokes the field receives.</li>
+</ul>
+<p class="muted">The engine (<code>api/src/lib/scoring.ts</code>) is covered by an automated unit-test suite spanning course handicap, plus handicaps, stroke allocation, per-tee strokes, and hole-by-hole match play with closeouts — so a refactor can't silently corrupt a result.</p>
+
+<h3>2 · The hidden-entry lock</h3>
+<p>Neither player can see the other's entered scores until <strong>both</strong> cards are submitted — and this is enforced server-side, not in the client. The API simply will not return an opponent's card, nor compute a reveal, until both scorecards exist. Each waiting player sees only "Your card is in. Waiting on your opponent." This removes any chance of back-solving the number you need on the last hole.</p>
+
+<div class="callout win">
+  <strong>Why it matters to a club:</strong> correct handicapping and a tamper-proof result are exactly what make members trust an unsupervised game. That trust is what turns a novelty into a weekly habit — and habitual play is the engagement a club is paying for.
+</div>
+
+<!-- ───────────────────────── ARCHITECTURE ───────────────────────── -->
+<h2 id="architecture">Architecture</h2>
+<p>Foretera reuses a proven, edge-native stack chosen for one property above all: <strong>near-zero cost when idle, automatic scale when busy.</strong> A club that plays hard on Saturday and goes quiet midweek pays for exactly that shape.</p>
+
+<div class="diagram">
+  <div class="layer">
+    <div class="layer-label">Client · iOS + Android</div>
+    <div class="nodes">
+      <div class="node accent"><div class="t">Expo / React Native</div><div class="d">Expo Router, one codebase, both stores</div></div>
+      <div class="node"><div class="t">Reanimated + Gesture</div><div class="d">Swipe deck, hole-by-hole reveal</div></div>
+      <div class="node"><div class="t">Zustand stores</div><div class="d">User, courses, favorites, theme</div></div>
+    </div>
+  </div>
+  <div class="flow">▼ &nbsp; HTTPS · Clerk-signed JWT &nbsp; ▼</div>
+  <div class="layer">
+    <div class="layer-label">Edge API · Cloudflare Workers</div>
+    <div class="nodes">
+      <div class="node accent"><div class="t">Workers API</div><div class="d">Routes: matches, scorecards, messages, players, courses, leaderboard…</div></div>
+      <div class="node"><div class="t">@clerk/backend</div><div class="d">JWT verification at the edge</div></div>
+      <div class="node"><div class="t">Scoring engine</div><div class="d">WHS adjust · allocate · settle</div></div>
+    </div>
+  </div>
+  <div class="flow">▼ &nbsp; bound directly to the Worker &nbsp; ▼</div>
+  <div class="layer">
+    <div class="layer-label">Data &amp; services</div>
+    <div class="nodes">
+      <div class="node accent"><div class="t">Cloudflare D1 (SQLite)</div><div class="d">System of record · matches, cards, courses, messages</div></div>
+      <div class="node"><div class="t">Clerk</div><div class="d">Auth &amp; identity</div></div>
+      <div class="node"><div class="t">Expo Push · Giphy</div><div class="d">Notifications · message GIFs</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid two">
+  <div class="card">
+    <h4>Why this stack</h4>
+    <p>Workers run at the edge with no server to keep warm; D1 is a serverless SQLite bound straight to the Worker. The whole backend bills on requests, so an idle week costs effectively nothing — the right shape for a club-by-club rollout.</p>
+  </div>
+  <div class="card">
+    <h4>One app, two stores</h4>
+    <p>Expo + React Native means an iPhone member can play an Android member with zero divergence. Builds ship to TestFlight and Google Play from a single EAS pipeline.</p>
+  </div>
+</div>
+
+<h3>Data model (current)</h3>
+<table>
+  <thead><tr><th>Entity</th><th>Holds</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>users</code></td><td>Identity, Handicap Index, photo, <code>home_course_id</code>, push token</td><td>Index entered manually (GHIN-ready)</td></tr>
+    <tr><td><code>matches</code></td><td>Creator/opponent, status, course, per-player tees, format, visibility, stakes (display), handicap snapshots, result, progression</td><td>State machine: open → accepted → in&nbsp;progress → completed</td></tr>
+    <tr><td><code>scorecards</code></td><td>Hole-by-hole gross per player</td><td>One per player per match; gated by the hidden-entry lock</td></tr>
+    <tr><td><code>courses → tees → holes</code></td><td>Par, stroke index, Course Rating, Slope, par per tee (incl. front/back nine splits)</td><td>Real USGA data; <code>courses.club_id</code> reserved for clubs</td></tr>
+    <tr><td><code>messages</code></td><td>Match-scoped chat, optional GIF</td><td>Durable record in D1</td></tr>
+    <tr><td><code>favorites · blocks</code></td><td>Starred opponents · safety</td><td>Drives "favorites only" + moderation</td></tr>
+  </tbody>
+</table>
+<p class="muted">The schema already carries <code>courses.club_id</code> — reserved for the club layer described next. The course → tee → hole structure is built for nationwide scale from day one.</p>
+
+<h3>Fairness &amp; safety properties</h3>
+<div class="pills">
+  <span class="pill gold">Server-enforced hidden lock</span>
+  <span class="pill gold">Handicaps snapshot on accept</span>
+  <span class="pill">Edge JWT verification</span>
+  <span class="pill">Block &amp; report</span>
+  <span class="pill">Public / private per match</span>
+  <span class="pill">No money in the app</span>
+  <span class="pill">Account &amp; data deletion</span>
+</div>
+
+<!-- ───────────────────────── NETWORK MODEL ───────────────────────── -->
+<h2 id="network">The Foretera network — the club model</h2>
+<p class="lead">Players are the audience that <em>uses</em> Foretera. Clubs are the audience that <em>funds</em> it. The product is designed so each side gets exactly what it values.</p>
+
+<div class="grid two">
+  <div class="card">
+    <h4>What a player gets — free</h4>
+    <p>Effortless games at a fair handicap, a competitive record that follows them anywhere, and a board that shows who's playing at their club this weekend.</p>
+  </div>
+  <div class="card">
+    <h4>What a club gets — paid</h4>
+    <p>A branded presence on every member's screen, an engagement engine that drives play and welcomes new members, and a private pulse of activity for the pro and GM.</p>
+  </div>
+</div>
+
+<h3>Network membership</h3>
+<p>Every course is playable, but a course can be a <strong>network club</strong> — a paying member of the Foretera network. The distinction is what creates the sales motion:</p>
+<ul>
+  <li><strong>In-network clubs</strong> get their crest and colors on the Feed, a verified badge in discovery, a members' leaderboard, and a pulse dashboard for staff. Their games surface first to their own members.</li>
+  <li><strong>Out-of-network clubs</strong> still work as venues — but when a member lands on that club's board, Foretera surfaces a gentle prompt: <em>"Prairie Highlands isn't part of the Foretera network yet. Want your club in? Ask your pro or GM to get in touch,"</em> with a one-tap share and a contact path. Members become the demand signal that sells the next club.</li>
+</ul>
+
+<div class="callout">
+  <strong>The flywheel:</strong> players join for the games → they create activity at their home club → an out-of-network club sees its members asking to join → the club joins to claim its branded board and pulse → in-network status pulls more of its members in. Each club's own roster is the moat; virality among strangers is not required.
+</div>
+
+<h3>Why a pro or GM says yes</h3>
+<div class="grid three">
+  <div class="card"><h4>Engagement</h4><p>More rounds, more reasons to come out, measurable in the pulse — matches per week, active members, live games.</p></div>
+  <div class="card"><h4>New-member welcome</h4><p>The hardest part of joining a club is finding games. Foretera hands new members an instant pool of compatible opponents.</p></div>
+  <div class="card"><h4>Brand &amp; events</h4><p>A branded board the club controls, with a clear path to club ladders, leagues, and event play built on the same engine.</p></div>
+</div>
+
+<h3>Go-to-market</h3>
+<ol>
+  <li><strong>Anchor club closed beta</strong> — prove the loop with one club's regulars (Saturday games, men's league).</li>
+  <li><strong>Club-of-record rollout</strong> — convert the anchor to a paying network club; its branded board becomes the reference sell.</li>
+  <li><strong>Member-pulled expansion</strong> — the out-of-network prompt turns members at neighboring clubs into inbound leads for the pro/GM.</li>
+  <li><strong>Network effects</strong> — cross-club challenges and regional leaderboards once multiple clubs are live.</li>
+</ol>
+
+<!-- ───────────────────────── ROADMAP ───────────────────────── -->
+<h2 id="roadmap">Roadmap</h2>
+<table>
+  <thead><tr><th>Horizon</th><th>What ships</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Now</strong></td><td>Discovery, create/challenge, messaging, manual score entry, hidden-entry lock, WHS settlement + reveal, records &amp; leaderboards, course feed/pulse.</td></tr>
+    <tr><td><strong>Club layer</strong></td><td>Network-club status, club branding on the Feed, verified badges, staff pulse dashboard, the out-of-network "ask your pro" prompt.</td></tr>
+    <tr><td><strong>Trust upgrades</strong></td><td>Scorecard <strong>photo verification</strong> (the original "Quell" OCR engine) as an optional anti-cheat layer; GHIN auto-lookup.</td></tr>
+    <tr><td><strong>Competition</strong></td><td>Club ladders, leagues, events, and cross-club regional play on the same settlement engine.</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<div class="footer">
+  <p><strong style="font-family:var(--display)">FORETERA</strong> — Post a match. Settle the score.</p>
+  <p>White paper v1 · Black + Gold "Members" brand · Display type Plus Jakarta Sans, body Inter. This document is maintained in the repository at <code>docs/FORETERA_WHITEPAPER.html</code>. Print to PDF for a shareable deck.</p>
+  <p class="muted">Foretera is a scorecard and match-discovery tool, not a wagering service. The app never processes money; all settlement happens off-platform.</p>
+</div>
+
+</div>
+</body>
+</html>
