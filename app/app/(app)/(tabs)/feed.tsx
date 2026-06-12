@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Image,
 } from 'react-native';
@@ -73,14 +73,18 @@ export default function FeedScreen() {
   const [sheetBusy, setSheetBusy] = useState(false);
   const [celebrate, setCelebrate] = useState<string | null>(null);
 
-  // Default the feed to the player's home course (once the catalog resolves).
+  // Default the feed to the player's home course ONCE (when the catalog
+  // resolves). The ref stops it re-firing after the user clears the picker —
+  // without it, hitting ✕ instantly repopulated the course they just cleared.
   const { courses, load: loadCourses } = useCourses();
+  const defaultedRef = useRef(false);
   useEffect(() => { loadCourses(); }, [loadCourses]);
   useEffect(() => {
+    if (defaultedRef.current) return;
     const hid = user?.home_course_id;
     if (!hid || course || !courses) return;
     const n = courses.find((x) => x.id === hid)?.name ?? null;
-    if (n) setCourse(n);
+    if (n) { defaultedRef.current = true; setCourse(n); }
   }, [user, courses, course]);
 
   const load = useCallback(async () => {
