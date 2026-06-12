@@ -34,6 +34,8 @@ export interface Palette {
   goldGlow: string;      // translucent gold wash
   live: string;          // COMMUNITY/broadcast — live matches, feed activity, messages
   liveGlow: string;      // translucent live wash
+  liveAlt: string;       // broadcast SECOND player (spectator reveal) — must stay
+  liveAltGlow: string;   //   distinct from accent/gold/win/loss on both palettes
   onAccent: string;      // text/icon on top of an accent fill
 
   // ── Legacy golf aliases (back-compat — point at the dark tokens above) ──
@@ -81,6 +83,7 @@ export const PALETTES: { id: string; name: string; colors: Palette }[] = [
       loss: '#D26A5C', lossGlow: 'rgba(210,106,92,0.13)', halve: '#BCB3A0', halveGlow: 'rgba(188,179,160,0.10)',
       gold: '#E8C87E', goldGlow: 'rgba(232,200,126,0.15)',
       live: '#8FB3CC', liveGlow: 'rgba(143,179,204,0.13)',
+      liveAlt: '#B49BC9', liveAltGlow: 'rgba(180,155,201,0.14)',
     }),
   },
   {
@@ -97,6 +100,7 @@ export const PALETTES: { id: string; name: string; colors: Palette }[] = [
       loss: '#B5483C', lossGlow: 'rgba(181,72,60,0.12)', halve: '#8B8470', halveGlow: 'rgba(139,132,112,0.26)',
       gold: '#8E6F1F', goldGlow: 'rgba(142,111,31,0.13)',
       live: '#3E6E8E', liveGlow: 'rgba(62,110,142,0.12)',
+      liveAlt: '#75589B', liveAltGlow: 'rgba(117,88,155,0.12)',
     }),
   },
 ];

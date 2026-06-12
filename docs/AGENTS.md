@@ -1,9 +1,12 @@
 # Foretera — Testing agents
 
 Project subagents in `.claude/agents/`. Claude Code picks these up automatically
-when working in this repo; invoke by name ("run quell-release-qa") or let
-Claude dispatch them per the matrix below. Each returns a structured verdict —
-the release rule is simple: **nothing pushes on a FAIL.**
+when **the session is rooted in this repo** (`claude` launched from
+`C:\Projects\Quell`); invoke by name ("run quell-release-qa") or let Claude
+dispatch them per the matrix below. From a session rooted elsewhere, dispatch a
+general-purpose agent with "read `.claude/agents/<name>.md` and execute it" —
+same behavior. Each returns a structured verdict — the release rule is simple:
+**nothing pushes on a FAIL.**
 
 ## The agents
 

@@ -79,6 +79,20 @@ export default function RevealScreen() {
   const myName = data ? (meIsCreator ? data.creator_name : data.opponent_name) : 'You';
   const holes: HoleResult[] = data?.progression?.holes ?? [];
 
+  // BROADCAST mode for spectators: neither player is "you", so neither owns
+  // win-green — and neither may borrow accent (brand chrome) or gold (prestige).
+  // Creator = live (steel blue), opponent = liveAlt (heather); deltas/headlines
+  // carry names, the backdrop stays neutral.
+  const creatorFirst = (data?.creator_name ?? '').split(' ')[0] || 'Creator';
+  const opponentFirst = (data?.opponent_name ?? '').split(' ')[0] || 'Opponent';
+  const sideColor = (side: 'creator' | 'opponent') => (side === 'creator' ? colors.live : colors.liveAlt);
+  const sideGlow = (side: 'creator' | 'opponent') => (side === 'creator' ? colors.liveGlow : colors.liveAltGlow);
+  // "Marcus 2 Up" / "All Square" — the running delta as a broadcast caption.
+  const broadcastDelta = (creatorDelta: number): string => {
+    if (creatorDelta === 0) return 'All Square';
+    return creatorDelta > 0 ? `${creatorFirst} ${creatorDelta} Up` : `${opponentFirst} ${-creatorDelta} Up`;
+  };
+
   const myDeltaAt = useCallback(
     (h: HoleResult) => (meIsCreator ? h.creator_delta : -h.creator_delta),
     [meIsCreator]
@@ -133,7 +147,9 @@ export default function RevealScreen() {
     if (isCloseout) haptics.heavy();
     else if (leadFlip) haptics.heavy();
     else if (backToSquare) haptics.medium();
-    else if (current.winner === mySide) haptics.medium();
+    // "Your hole" emphasis is a participant feeling — spectators get the drama
+    // beats (above) and a light tick otherwise.
+    else if (!isSpectator && current.winner === mySide) haptics.medium();
     else haptics.light();
   }, [step, current, done, loading, mySide, holes, data]);
 
@@ -220,7 +236,10 @@ export default function RevealScreen() {
     );
   }
 
-  const grad = gradientFor(done ? outcome : (myDelta > 0 ? 'win' : myDelta < 0 ? 'loss' : 'tie'), colors);
+  // Spectators get a neutral backdrop — the green/red wash is a rooting
+  // interest the viewer doesn't have.
+  const grad = isSpectator ? gradientFor(null, colors)
+    : gradientFor(done ? outcome : (myDelta > 0 ? 'win' : myDelta < 0 ? 'loss' : 'tie'), colors);
 
   return (
     <View style={styles.flex}>
@@ -230,30 +249,44 @@ export default function RevealScreen() {
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         {/* Top bar */}
         <View style={styles.topBar}>
-          <Pressable hitSlop={12} onPress={() => router.back()} style={styles.iconBtn}>
+          <Pressable hitSlop={12} onPress={() => router.back()} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Close the reveal">
             <Ionicons name="close" size={26} color={colors.text} />
           </Pressable>
           <Text style={styles.topCaption}>{done ? 'Final' : `Hole ${current?.hole ?? ''} · ${step}/${holes.length}`}</Text>
           {!done ? (
-            <Pressable hitSlop={12} onPress={() => setPaused((p) => !p)} style={styles.iconBtn}>
+            <Pressable hitSlop={12} onPress={() => setPaused((p) => !p)} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={paused ? 'Resume the reveal' : 'Pause the reveal'}>
               <Ionicons name={paused ? 'play' : 'pause'} size={24} color={colors.text} />
             </Pressable>
           ) : (
-            <Pressable hitSlop={12} onPress={shareResult} style={styles.iconBtn}>
+            <Pressable hitSlop={12} onPress={shareResult} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Share the result">
               <Ionicons name="share-outline" size={24} color={colors.text} />
             </Pressable>
           )}
         </View>
 
-        {/* Scoreline */}
+        {/* Scoreline — participants see their own delta in win/loss colors;
+            spectators see a named broadcast caption in player colors. */}
         <View style={styles.scoreline}>
-          <Animated.Text key={`d-${done ? 'f' : step}`} entering={FadeIn.duration(300)} style={[styles.scoreBig, deltaColor(myDelta, colors)]}>
+          <Animated.Text
+            key={`d-${done ? 'f' : step}`} entering={FadeIn.duration(300)}
+            style={[styles.scoreBig, isSpectator
+              ? { color: myDelta > 0 ? sideColor('creator') : myDelta < 0 ? sideColor('opponent') : colors.halve }
+              : deltaColor(myDelta, colors)]}
+          >
             {done && outcome
               ? (isSpectator ? spectatorHeadline(outcome, myName, theirName) : finalHeadline(outcome))
-              : deltaLabel(myDelta)}
+              : (isSpectator ? broadcastDelta(current?.creator_delta ?? 0) : deltaLabel(myDelta))}
           </Animated.Text>
           {done && outcome !== 'tie' && (
             <Text style={styles.finalDelta}>{data.progression.final_delta}</Text>
+          )}
+          {isSpectator && (
+            <View style={styles.legend}>
+              <View style={[styles.legendDot, { backgroundColor: colors.live }]} />
+              <Text style={styles.legendText}>{creatorFirst}</Text>
+              <View style={[styles.legendDot, { backgroundColor: colors.liveAlt }]} />
+              <Text style={styles.legendText}>{opponentFirst}</Text>
+            </View>
           )}
         </View>
 
@@ -265,10 +298,15 @@ export default function RevealScreen() {
               const isCurrent = !done && i === step - 1;
               const iWon = h.winner === mySide;
               const halve = h.winner === 'tie';
+              // Spectators: chips wear the WINNING PLAYER's broadcast color
+              // (legend above), not the viewer-POV win/loss coding.
+              const spectChip = isSpectator && revealed && !halve
+                ? { backgroundColor: sideColor(h.winner as 'creator' | 'opponent'), borderColor: sideColor(h.winner as 'creator' | 'opponent') }
+                : null;
               return (
                 <Pressable key={h.hole} onPress={() => goTo(i + 1)} style={[
                   styles.chip,
-                  revealed && (halve ? styles.chipHalve : iWon ? styles.chipWin : styles.chipLoss),
+                  revealed && (halve ? styles.chipHalve : isSpectator ? spectChip : iWon ? styles.chipWin : styles.chipLoss),
                   !revealed && styles.chipPending,
                   isCurrent && styles.chipCurrent,
                 ]}>
@@ -296,6 +334,8 @@ export default function RevealScreen() {
                   net={meIsCreator ? current.creator_net : current.opponent_net}
                   strokes={meIsCreator ? current.creator_strokes : current.opponent_strokes}
                   won={current.winner === mySide}
+                  wonColor={isSpectator ? sideColor('creator') : undefined}
+                  wonGlow={isSpectator ? sideGlow('creator') : undefined}
                   stepKey={step}
                 />
                 <View style={styles.vsCol}><Text style={styles.vs}>vs</Text></View>
@@ -305,10 +345,14 @@ export default function RevealScreen() {
                   net={meIsCreator ? current.opponent_net : current.creator_net}
                   strokes={meIsCreator ? current.opponent_strokes : current.creator_strokes}
                   won={current.winner === (meIsCreator ? 'opponent' : 'creator')}
+                  wonColor={isSpectator ? sideColor('opponent') : undefined}
+                  wonGlow={isSpectator ? sideGlow('opponent') : undefined}
                   stepKey={step}
                 />
               </View>
-              <Text style={[styles.holeOutcome, holeOutcomeColor(current, mySide, colors)]}>
+              <Text style={[styles.holeOutcome, isSpectator
+                ? { color: current.winner === 'tie' ? colors.halve : sideColor(current.winner as 'creator' | 'opponent') }
+                : holeOutcomeColor(current, mySide, colors)]}>
                 {current.winner === 'tie' ? 'Hole halved'
                   : current.winner === mySide ? (isSpectator ? `${myName} wins the hole` : 'You win the hole')
                   : `${theirName} wins the hole`}
@@ -332,7 +376,7 @@ export default function RevealScreen() {
             )}
             <DramaCard holes={holes} decidedOn={data.progression.decided_on_hole} colors={colors} styles={styles} />
             <RoundStats
-              holes={holes} parByHole={parByHole} mySide={mySide}
+              holes={holes} parByHole={parByHole} mySide={mySide} isSpectator={isSpectator}
               myName={myName} theirName={theirName}
               myGross={meIsCreator ? data.creator_scorecard.total_gross : data.opponent_scorecard.total_gross}
               theirGross={meIsCreator ? data.opponent_scorecard.total_gross : data.creator_scorecard.total_gross}
@@ -398,21 +442,28 @@ function useCountUp(target: number, key: number): number {
   return n;
 }
 
-function HoleSide({ name, gross, net, strokes, won, you, stepKey }: {
-  name: string; gross: number; net: number; strokes: number; won: boolean; you?: boolean; stepKey: number;
+function HoleSide({ name, gross, net, strokes, won, you, wonColor, wonGlow, stepKey }: {
+  name: string; gross: number; net: number; strokes: number; won: boolean; you?: boolean;
+  // Broadcast override (spectators): the player's color instead of win-green.
+  wonColor?: string; wonGlow?: string; stepKey: number;
 }) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const shown = useCountUp(gross, stepKey);
+  const wonWrap = won && (wonColor ? { borderColor: wonColor, backgroundColor: wonGlow } : styles.sideWonWrap);
+  const wonText = won && (wonColor ? { color: wonColor } : styles.sideWonText);
+  // In broadcast mode (wonColor present) stroke dots go neutral — accent dots
+  // inside a player-colored card would read as the other player's mark.
+  const dotTint = wonColor ? { backgroundColor: colors.muted } : null;
   return (
-    <View style={[styles.side, won && styles.sideWonWrap]}>
+    <View style={[styles.side, wonWrap]}>
       <Text style={styles.sideLabel} numberOfLines={1}>{you ? 'You' : name}</Text>
-      <Text style={[styles.sideGross, won && styles.sideWonText]}>{shown}</Text>
+      <Text style={[styles.sideGross, wonText]}>{shown}</Text>
       {strokes > 0 ? (
         <View style={styles.netRow}>
-          <Text style={[styles.netText, won && styles.sideWonText]}>net {net}</Text>
+          <Text style={[styles.netText, wonText]}>net {net}</Text>
           <View style={styles.dots}>
-            {Array.from({ length: strokes }).map((_, i) => <View key={i} style={styles.dot} />)}
+            {Array.from({ length: strokes }).map((_, i) => <View key={i} style={[styles.dot, dotTint]} />)}
           </View>
         </View>
       ) : (
@@ -469,8 +520,8 @@ function DramaCard({ holes, decidedOn, colors, styles }: {
   );
 }
 
-function RoundStats({ holes, parByHole, mySide, myName, theirName, myGross, theirGross, decidedOn, colors, styles }: {
-  holes: HoleResult[]; parByHole: Record<number, number | null>; mySide: 'creator' | 'opponent';
+function RoundStats({ holes, parByHole, mySide, isSpectator, myName, theirName, myGross, theirGross, decidedOn, colors, styles }: {
+  holes: HoleResult[]; parByHole: Record<number, number | null>; mySide: 'creator' | 'opponent'; isSpectator: boolean;
   myName: string; theirName: string; myGross: number; theirGross: number; decidedOn: number | null;
   colors: Palette; styles: ReturnType<typeof makeStyles>;
 }) {
@@ -499,14 +550,15 @@ function RoundStats({ holes, parByHole, mySide, myName, theirName, myGross, thei
       <View style={styles.statsCard}>
         <Text style={styles.statsTitle}>Holes</Text>
         <View style={styles.statRow}>
-          <StatCell label="Won" value={won} tone="accent" styles={styles} />
-          <StatCell label="Lost" value={lost} tone="loss" styles={styles} />
+          {/* Spectators read named columns in broadcast colors, not Won/Lost. */}
+          <StatCell label={isSpectator ? (myName.split(' ')[0] || 'Creator') : 'Won'} value={won} tone={isSpectator ? 'live' : 'accent'} styles={styles} />
+          <StatCell label={isSpectator ? (theirName.split(' ')[0] || 'Opponent') : 'Lost'} value={lost} tone={isSpectator ? 'brand' : 'loss'} styles={styles} />
           <StatCell label="Halved" value={halved} tone="muted" styles={styles} />
         </View>
       </View>
 
       <View style={styles.statsCard}>
-        <Text style={styles.statsTitle}>Your card</Text>
+        <Text style={styles.statsTitle}>{isSpectator ? `${myName.split(' ')[0] || 'Creator'}'s card` : 'Your card'}</Text>
         <View style={styles.statRow}>
           <StatCell label="Birdies+" value={eagles + birdies} tone="accent" styles={styles} />
           <StatCell label="Pars" value={pars} tone="text" styles={styles} />
@@ -515,7 +567,7 @@ function RoundStats({ holes, parByHole, mySide, myName, theirName, myGross, thei
         </View>
         <View style={styles.statsLine}>
           <Text style={styles.statsLineLabel}>Gross</Text>
-          <Text style={styles.statsLineVal}>{myName.split(' ')[0] || 'You'} {myGross}  ·  {theirName.split(' ')[0]} {theirGross}</Text>
+          <Text style={styles.statsLineVal}>{myName.split(' ')[0] || 'You'} {myGross}  ·  {theirName.split(' ')[0] || 'Opponent'} {theirGross}</Text>
         </View>
         {best && (
           <View style={styles.statsLine}>
@@ -535,7 +587,7 @@ function RoundStats({ holes, parByHole, mySide, myName, theirName, myGross, thei
 }
 
 function StatCell({ label, value, tone, styles }: {
-  label: string; value: number; tone: 'accent' | 'loss' | 'muted' | 'text'; styles: ReturnType<typeof makeStyles>;
+  label: string; value: number; tone: 'accent' | 'loss' | 'muted' | 'text' | 'live' | 'brand'; styles: ReturnType<typeof makeStyles>;
 }) {
   return (
     <View style={styles.statCell}>
@@ -642,6 +694,11 @@ function makeStyles(c: Palette) {
     tone_loss: { color: c.loss },
     tone_muted: { color: c.muted },
     tone_text: { color: c.text },
+    tone_live: { color: c.live },   // broadcast: creator's column
+    tone_brand: { color: c.accent },// broadcast: opponent's column
+    legend: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+    legendDot: { width: 9, height: 9, borderRadius: 5 },
+    legendText: { ...t.caption, color: c.muted, marginRight: spacing.sm },
     statsLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border, paddingTop: spacing.sm },
     statsLineLabel: { ...t.caption, color: c.muted },
     statsLineVal: { ...t.bodySemiBold, color: c.text },

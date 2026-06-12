@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
@@ -17,7 +17,7 @@ import { haptics } from '@/lib/haptics';
 import { formatHandicap } from '@/lib/format';
 import { MATCH_TYPE_LABELS } from '@/types';
 import type { CourseFeedMatch, CourseSummary, OpenInvite, CoursePulse, ClubSummary } from '@/types';
-import { spacing, radius, typography, type Palette } from '@/constants/theme';
+import { spacing, radius, typography, fonts, type Palette } from '@/constants/theme';
 
 // Local YYYY-MM-DD (the player's clock, not UTC) so "today" lines up with the
 // feed's play_date filter.
@@ -143,19 +143,32 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      {/* Course header + switcher */}
+      {/* Club masthead — the branded board header. Crest (or monogram), club
+          name, and the gold network lockup; the whole row is the switcher. */}
       <View style={styles.courseHeader}>
-        <TouchableOpacity style={styles.courseTitleRow} activeOpacity={0.7} onPress={() => { haptics.select(); setSwitching((s) => !s); }}>
-          <Ionicons name="golf-outline" size={18} color={colors.live} />
-          <Text style={styles.courseTitle} numberOfLines={1}>{course ?? 'Pick a course'}</Text>
+        <TouchableOpacity
+          style={styles.courseTitleRow} activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={course ? `${course} — change course` : 'Pick a course'}
+          accessibilityState={{ expanded: switching }}
+          onPress={() => { haptics.select(); setSwitching((s) => !s); }}
+        >
+          {course && club ? (
+            <ClubCrest club={club} colors={colors} styles={styles} />
+          ) : (
+            <Ionicons name="golf-outline" size={18} color={colors.live} />
+          )}
+          <View style={styles.mastheadMid}>
+            <Text style={styles.courseTitle} numberOfLines={1}>{course ?? 'Pick a course'}</Text>
+            {club?.status === 'network' && (
+              <View style={styles.networkRow}>
+                <Ionicons name="shield-checkmark" size={11} color={colors.gold} />
+                <Text style={styles.networkText}>Foretera Network Club</Text>
+              </View>
+            )}
+          </View>
           <Ionicons name={switching ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
         </TouchableOpacity>
-        {club?.status === 'network' && (
-          <View style={styles.networkBadge}>
-            <Ionicons name="shield-checkmark" size={12} color={colors.gold} />
-            <Text style={styles.networkBadgeText}>Foretera Club</Text>
-          </View>
-        )}
       </View>
       {(switching || !course) && (
         <View style={styles.switcher}>
@@ -169,9 +182,10 @@ export default function FeedScreen() {
       >
         {error && <Text style={styles.error}>{error}</Text>}
 
-        {/* ── Club pulse — the course's weekly heartbeat ── */}
+        {/* ── Club pulse — the course's weekly heartbeat. Network clubs wear
+            the gold trim: the paid tier should LOOK like the paid tier. ── */}
         {course && pulse && (
-          <View style={styles.pulseCard}>
+          <View style={[styles.pulseCard, club?.status === 'network' && styles.pulseCardNetwork]}>
             <View style={styles.pulseCell}>
               <Text style={styles.pulseNum}>{pulse.week_matches}</Text>
               <Text style={styles.pulseLabel}>matches this week</Text>
@@ -311,6 +325,39 @@ export default function FeedScreen() {
         <AcceptCelebration onDone={() => { const id = celebrate; setCelebrate(null); router.push(`/(app)/match/${id}`); }} />
       ) : null}
     </SafeAreaView>
+  );
+}
+
+// The club crest: real artwork when the club has uploaded one, otherwise a
+// monogram chip in the club's color. Network clubs get the gold ring.
+function crestInitials(name: string): string {
+  const stop = new Set(['golf', 'club', 'course', 'country', 'the', 'of', 'at']);
+  const words = name.split(/\s+/).filter((w) => w && !stop.has(w.toLowerCase()));
+  return ((words[0]?.[0] ?? name[0] ?? '?') + (words[1]?.[0] ?? '')).toUpperCase();
+}
+
+// Monogram text must read on an ARBITRARY club brand color, so the pair is
+// picked by the background's luminance — the one place theme tokens can't help.
+function crestTextColor(bg: string | null, colors: Palette): string {
+  if (!bg) return colors.text; // theme fallback chip → theme text
+  const m = bg.match(/^#?([0-9a-fA-F]{6})/);
+  if (!m) return '#F5F1E6';
+  const n = parseInt(m[1], 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 145 ? '#16120A' : '#F5F1E6';
+}
+
+function ClubCrest({ club, colors, styles }: {
+  club: ClubSummary; colors: Palette; styles: ReturnType<typeof makeStyles>;
+}) {
+  const ring = club.status === 'network' ? colors.gold : colors.border;
+  if (club.crest_url) {
+    return <Image source={{ uri: club.crest_url }} style={[styles.crest, { borderColor: ring }]} accessible={false} />;
+  }
+  return (
+    <View style={[styles.crest, styles.crestMono, { borderColor: ring, backgroundColor: club.primary_color ?? colors.surfaceRaised }]}>
+      <Text style={[styles.crestText, { color: crestTextColor(club.primary_color, colors) }]}>{crestInitials(club.name)}</Text>
+    </View>
   );
 }
 
@@ -460,13 +507,18 @@ function makeStyles(colors: Palette) {
       paddingHorizontal: spacing.md, paddingVertical: 6,
     },
     acceptBtnText: { ...typography.caption, fontSize: 12, color: colors.onAccent, fontWeight: '700' },
-    networkBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
-      backgroundColor: colors.goldGlow, borderWidth: 1, borderColor: colors.gold,
-      borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2,
-      marginTop: spacing.xs, marginLeft: 26,
+    // Masthead
+    mastheadMid: { flex: 1, gap: 2 },
+    networkRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    networkText: {
+      // fontFamily wins over fontWeight on iOS — use the semibold family.
+      fontFamily: fonts.bodySemi, fontSize: 11, color: colors.gold,
+      textTransform: 'uppercase', letterSpacing: 1,
     },
-    networkBadgeText: { ...typography.caption, fontSize: 11, color: colors.gold, fontWeight: '700' },
+    crest: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5 },
+    crestMono: { alignItems: 'center', justifyContent: 'center' },
+    crestText: { ...typography.bodySemiBold, fontSize: 15, letterSpacing: 0.5 },
+    pulseCardNetwork: { borderColor: colors.gold },
     moreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm },
     moreText: { ...typography.caption, color: colors.accent, fontWeight: '600' },
     openEmpty: {
@@ -492,7 +544,7 @@ function makeStyles(colors: Palette) {
     statusChip: { backgroundColor: colors.surfaceRaised, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
     statusChipLive: { backgroundColor: colors.live },
     statusChipText: { ...typography.caption, color: colors.muted },
-    statusChipTextLive: { color: colors.scheme === 'dark' ? colors.bg : '#FFFFFF', fontWeight: '700' },
+    statusChipTextLive: { color: colors.scheme === 'dark' ? colors.bg : colors.onAccent, fontFamily: fonts.bodySemi },
     meta: { ...typography.caption, color: colors.muted, textAlign: 'right' },
     mineTag: { ...typography.caption, color: colors.live, fontSize: 11 },
   });

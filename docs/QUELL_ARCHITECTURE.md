@@ -147,7 +147,8 @@ a later anti-cheat option, GHIN auto-lookup.
 
 | Date | HEAD | What changed |
 |---|---|---|
-| 2026-06-12 | (this push) | Tabs 6→5 (Settings behind the header menu); testing agents (`.claude/agents/` + `AGENTS.md`); `PRICING.md`; white paper v1.1; this doc rewritten as-built |
+| 2026-06-12 | (this push) | **Spectator broadcast mode** on the reveal (named deltas, per-player colors `live`/`liveAlt`, neutral backdrop, legend — no more creator-POV for bystanders); **club masthead** on the Feed (crest/monogram, network lockup, gold-trimmed pulse); first agent-gated release (release-qa PASS + ux-audit findings fixed pre-push) |
+| 2026-06-12 | `d7a7847` | Tabs 6→5 (Settings behind the header menu); testing agents (`.claude/agents/` + `AGENTS.md`); `PRICING.md`; white paper v1.1; this doc rewritten as-built |
 | 2026-06-12 | `e5da0db` | **Clubs model (A1)** — migration 0014, network/prospect flag, gold badge; accept-from-feed; 52-match seed across 8 clubs; Black + Gold icon/splash/store assets |
 | 2026-06-12 | `bb2bccf` | Feed → club board (open invites + pulse); Record → career page (rivals, course form, milestones, bests) |
 | 2026-06-10 | `c57a2e6` | Black + Gold "Members" rebrand; member-card discovery; home-course soft preference |
