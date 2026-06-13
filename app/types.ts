@@ -147,6 +147,56 @@ export interface ClubSummary {
 // asked for it (the demand counter, shown back as social proof).
 export interface ClubDetail extends ClubSummary {
   interest_count: number;
+  pinned_message?: string | null;
+}
+
+// ── Club value tier (network clubs) ─────────────────────────────────────────
+export type ChampionCategory = 'won' | 'played' | 'win_pct';
+
+// One member's standing in a champion category (winner first, then runners-up).
+export interface ChampionEntry {
+  user_id: string;
+  name: string;
+  photo_url: string | null;
+  value: number;   // wins | matches | win-pct (0..100)
+  detail: string;  // '9 wins' | '14 matches' | '82% (11–2)'
+  wins: number;
+  losses: number;
+  ties: number;
+  played: number;
+}
+
+// GET /clubs/:id/champions — three monthly crowns. `crowned` false = live
+// leaders for the in-progress month; true = frozen at month end.
+export interface ClubChampions {
+  club_id: string;
+  month: string;       // 'YYYY-MM'
+  crowned: boolean;
+  won: ChampionEntry[];
+  played: ChampionEntry[];
+  win_pct: ChampionEntry[];
+}
+
+export interface DashboardPlayer {
+  user_id: string;
+  name: string;
+  photo_url: string | null;
+}
+
+// GET /clubs/:id/dashboard — staff-only engagement view.
+export interface ClubDashboard {
+  course_name: string;
+  this_week: { matches: number; players: number };
+  last_week: { matches: number; players: number };
+  trend: { week: string; matches: number }[];
+  active_this_month: number;
+  new_this_month: number;
+  returning_this_month: number;
+  most_active: (DashboardPlayer & { matches: number })[];
+  churn: { count: number; players: (DashboardPlayer & { last_played: string })[] };
+  live_now: number;
+  open_invites: number;
+  demand: { total: number; last_30d: number };
 }
 
 export interface Message {

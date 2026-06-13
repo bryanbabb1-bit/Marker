@@ -100,10 +100,15 @@ onboarding, settings.
 
 ## 6. Club network layer (the business)
 
-`clubs.status` drives everything (strategy doc A1 + A2 — **shipped**):
-- `network` → gold crest masthead + lockup + gold-trimmed pulse on the board;
-  next (A3): uploaded crest art/colors, club leaderboard scope, staff pulse
-  dashboard.
+`clubs.status` drives everything (strategy doc A1 + A2 + A3 — **shipped**):
+- `network` → the value tier: **monthly champions** (three crowns per club —
+  `won`/`played`/`win_pct`; live current-month derivation + a `0 7 1 * *` cron
+  that freezes the prior month into `club_champions` and pushes winners;
+  `api/src/lib/champions.ts`), a **staff pulse dashboard** (in-app, gated to
+  `club_staff`: weekly engagement, 8-week trend, new/returning, churn watch,
+  demand — all derived from matches at the club's course; `lib/dashboard.ts`),
+  and **club identity** (crest upload → R2, club color, pinned note). Plus the
+  gold crest masthead + champions strip on the board.
 - `prospect` → the **demand engine** is live: members at a prospect club see a
   dismissible "ask your pro" card on their HOME board only (14-day local
   snooze). "Tell your pro" records a per-member signal (`club_interest`,
@@ -114,8 +119,13 @@ onboarding, settings.
   replaces the mailto when billing lands (A4). Club billing stays OFF-app
   (B2B SaaS — no app-store cut); pricing in `PRICING.md` ($149/mo ·
   $1,490/yr · founders $990/yr).
-- API: `GET /clubs/:id` (summary + interest_count), `POST /clubs/:id/interest`
-  (INSERT OR IGNORE; no-op success on network clubs).
+- API: `GET /clubs/:id` (summary + interest_count + pinned_message),
+  `POST /clubs/:id/interest`, `GET /clubs/:id/champions?month=` (live or frozen),
+  `GET /clubs/:id/dashboard` (staff-gated), `POST /clubs/:id/crest` (staff,
+  R2), `PATCH /clubs/:id` (staff: color/pinned). `/me` carries `staff_club_id`.
+- Tables: `club_staff` (who manages a club — seeded manually until claim
+  auto-provisions), `club_champions` (frozen monthly crowns). Staff dashboard
+  uses "golfers who've played here" as the member proxy (no roster exists).
 
 ## 7. Ops & conventions
 
@@ -156,7 +166,8 @@ a later anti-cheat option, GHIN auto-lookup.
 
 | Date | HEAD | What changed |
 |---|---|---|
-| 2026-06-12 | (this push) | **A2 demand engine**: `club_interest` (migration 0015) + `/clubs/:id` + `/clubs/:id/interest`; prospect "ask your pro" card on home boards (share flow, 14-day snooze); claim pager screen with live demand count + pricing; feed course-picker clear fix |
+| 2026-06-13 | (this push) | **Network value tier (A3)**: monthly champions (migration 0016 `club_champions` + `lib/champions.ts` + month-end cron), staff pulse dashboard (`lib/dashboard.ts`, `club_staff` gating, engagement/churn/demand), club identity (crest upload, color, pinned note); in-app champions strip + hall-of-fame + staff dashboard screens; `staff_club_id` on `/me` |
+| 2026-06-12 | `d66f437` | **A2 demand engine**: `club_interest` (migration 0015) + `/clubs/:id` + `/clubs/:id/interest`; prospect "ask your pro" card on home boards (share flow, 14-day snooze); claim pager screen with live demand count + pricing; feed course-picker clear fix |
 | 2026-06-12 | `2afb2aa` | **Spectator broadcast mode** on the reveal (named deltas, per-player colors `live`/`liveAlt`, neutral backdrop, legend — no more creator-POV for bystanders); **club masthead** on the Feed (crest/monogram, network lockup, gold-trimmed pulse); first agent-gated release (release-qa PASS + ux-audit findings fixed pre-push) |
 | 2026-06-12 | `d7a7847` | Tabs 6→5 (Settings behind the header menu); testing agents (`.claude/agents/` + `AGENTS.md`); `PRICING.md`; white paper v1.1; this doc rewritten as-built |
 | 2026-06-12 | `e5da0db` | **Clubs model (A1)** — migration 0014, network/prospect flag, gold badge; accept-from-feed; 52-match seed across 8 clubs; Black + Gold icon/splash/store assets |

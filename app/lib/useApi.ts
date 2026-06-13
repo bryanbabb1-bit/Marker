@@ -5,6 +5,7 @@ import type {
   DiscoveryMatch, Match, Message, HoleEntry, RevealResponse, SubmitScoresResponse, HolesSetup,
   MyRecord, LeaderboardEntry, CourseSummary, TeeSummary, Favorite, PlayerProfile, Gif,
   CourseFeedMatch, Visibility, OpenInvite, CoursePulse, ClubSummary, ClubDetail,
+  ClubChampions, ClubDashboard,
 } from '@/types';
 
 export interface CreateMatchInput {
@@ -76,6 +77,25 @@ export function useApi() {
       getClub: (id: string) => call<ClubDetail>(`/clubs/${id}`),
       clubInterest: (id: string) =>
         call<{ recorded: boolean; count: number }>(`/clubs/${id}/interest`, { method: 'POST' }),
+      getChampions: (id: string, month?: string) =>
+        call<ClubChampions>(`/clubs/${id}/champions${month ? `?month=${month}` : ''}`),
+      getClubDashboard: (id: string) => call<ClubDashboard>(`/clubs/${id}/dashboard`),
+      updateClub: (id: string, patch: { primary_color?: string | null; pinned_message?: string | null }) =>
+        call<ClubDetail>(`/clubs/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+      // Crest upload — staff only; mirrors uploadPhoto but targets the club.
+      uploadClubCrest: async (id: string, localUri: string): Promise<{ crest_url: string }> => {
+        const token = await getTokenRef.current();
+        if (!token) throw new Error('Not signed in');
+        const fileResp = await fetch(localUri);
+        const blob = await fileResp.blob();
+        const up = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/clubs/${id}/crest`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': blob.type || 'image/jpeg' },
+          body: blob,
+        });
+        if (!up.ok) throw new Error((await up.json().catch(() => ({}))).error ?? 'Upload failed');
+        return up.json();
+      },
 
       // Profile
       getMe: () => call<any>('/me'),

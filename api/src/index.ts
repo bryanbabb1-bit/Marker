@@ -14,6 +14,7 @@ import { handleClubs } from './routes/clubs';
 import { handleFavorites } from './routes/favorites';
 import { handlePlayer } from './routes/players';
 import { runReminders } from './routes/reminders';
+import { crownPriorMonth } from './lib/champions';
 import { handleUploadPhoto, servePhoto } from './routes/photos';
 import { handleGifs } from './routes/gifs';
 
@@ -176,8 +177,13 @@ export default {
     return final;
   },
 
-  // Hourly cron (wrangler.toml) — score reminders + forfeit sweep.
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runReminders(env));
+  // Cron (wrangler.toml). The monthly schedule freezes club champions; every
+  // other tick is the hourly reminder/forfeit sweep.
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (controller.cron === '0 7 1 * *') {
+      ctx.waitUntil(crownPriorMonth(env));
+    } else {
+      ctx.waitUntil(runReminders(env));
+    }
   },
 } satisfies ExportedHandler<Env>;

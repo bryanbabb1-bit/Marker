@@ -17,7 +17,7 @@ import { Avatar, EmptyState } from '@/components/ui';
 import { haptics } from '@/lib/haptics';
 import { formatHandicap } from '@/lib/format';
 import { MATCH_TYPE_LABELS } from '@/types';
-import type { CourseFeedMatch, CourseSummary, OpenInvite, CoursePulse, ClubSummary } from '@/types';
+import type { CourseFeedMatch, CourseSummary, OpenInvite, CoursePulse, ClubSummary, ClubChampions, ChampionEntry } from '@/types';
 import { spacing, radius, typography, fonts, type Palette } from '@/constants/theme';
 
 // Local YYYY-MM-DD (the player's clock, not UTC) so "today" lines up with the
@@ -63,6 +63,7 @@ export default function FeedScreen() {
   const [open, setOpen] = useState<OpenInvite[]>([]);
   const [pulse, setPulse] = useState<CoursePulse | null>(null);
   const [club, setClub] = useState<ClubSummary | null>(null);
+  const [champions, setChampions] = useState<ClubChampions | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +106,12 @@ export default function FeedScreen() {
       // Demand social proof shows BEFORE the viewer acts; the POST response
       // keeps it fresh after their own tap.
       setSignalCount(r.club?.interest_count ?? null);
+      // Champions are a network perk — only fetch where they'll show.
+      if (r.club?.status === 'network') {
+        api.getChampions(r.club.id).then(setChampions).catch(() => setChampions(null));
+      } else {
+        setChampions(null);
+      }
     } catch (e: any) {
       setError(e?.message ?? 'Could not load the feed.');
     } finally {
@@ -151,6 +158,9 @@ export default function FeedScreen() {
       `Worth a look for the club — foretera.app`;
     try { await Share.share({ message: msg }); } catch { /* dismissed */ }
   };
+
+  // Staff of THIS club see a Manage entry into the pulse dashboard.
+  const isStaff = !!club && user?.staff_club_id === club.id;
 
   const live = rows.filter((m) => m.status === 'accepted' || m.status === 'in_progress');
   const done = rows.filter((m) => m.status === 'completed');
@@ -219,6 +229,19 @@ export default function FeedScreen() {
           </View>
           <Ionicons name={switching ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
         </TouchableOpacity>
+        {isStaff && (
+          <TouchableOpacity
+            style={styles.manageBar}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Manage this club"
+            onPress={() => { haptics.select(); router.push(`/(app)/club/${club!.id}/manage`); }}
+          >
+            <Ionicons name="speedometer-outline" size={14} color={colors.gold} />
+            <Text style={styles.manageText}>Manage club · pulse dashboard</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.gold} />
+          </TouchableOpacity>
+        )}
       </View>
       {(switching || !course) && (
         <View style={styles.switcher}>
@@ -246,7 +269,7 @@ export default function FeedScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.prospectBody}>
-              Your games here work just fine — but the club board, crest, and members’ leaderboard are waiting.
+              Your games here work just fine — but the branded board, monthly champions, and members’ leaderboard are waiting.
             </Text>
             {signalCount != null && signalCount > 0 && (
               <Text style={styles.prospectCount}>
@@ -291,6 +314,28 @@ export default function FeedScreen() {
               <Text style={styles.pulseLabel}>live now</Text>
             </View>
           </View>
+        )}
+
+        {/* ── Monthly champions — the network club's marquee (gold). ── */}
+        {club?.status === 'network' && champions && (
+          <>
+            <View style={styles.sectionHead}>
+              <Ionicons name="trophy" size={14} color={colors.gold} style={{ marginTop: spacing.sm }} />
+              <Text style={styles.sectionTitle}>{monthTitle(champions.month, champions.crowned)}</Text>
+              <TouchableOpacity
+                style={{ marginTop: spacing.sm, marginLeft: 'auto' }}
+                hitSlop={8} accessibilityRole="button"
+                onPress={() => { haptics.select(); router.push(`/(app)/club/${club.id}`); }}
+              >
+                <Text style={styles.seeAll}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.champRow}>
+              <CrownCard label="Most Wins" entry={champions.won[0]} colors={colors} styles={styles} />
+              <CrownCard label="Most Played" entry={champions.played[0]} colors={colors} styles={styles} />
+              <CrownCard label="Best Win %" entry={champions.win_pct[0]} colors={colors} styles={styles} />
+            </View>
+          </>
         )}
 
         {/* ── Looking for a game — the open network at this course ── */}
@@ -412,6 +457,37 @@ export default function FeedScreen() {
         <AcceptCelebration onDone={() => { const id = celebrate; setCelebrate(null); router.push(`/(app)/match/${id}`); }} />
       ) : null}
     </SafeAreaView>
+  );
+}
+
+// "June leaders" while the month is live; "May champions" once frozen.
+function monthTitle(monthKey: string, crowned: boolean): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  const name = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long' });
+  return `${name} ${crowned ? 'champions' : 'leaders'}`;
+}
+
+// One crown: the leader in a category. Empty (no qualifier yet) shows a muted
+// placeholder so the three-up row stays even.
+function CrownCard({ label, entry, colors, styles }: {
+  label: string; entry: ChampionEntry | undefined; colors: Palette; styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <View style={styles.crownCard}>
+      <Text style={styles.crownLabel}>{label}</Text>
+      {entry ? (
+        <>
+          <Avatar name={entry.name} size={40} photoUrl={entry.photo_url} />
+          <Text style={styles.crownName} numberOfLines={1}>{entry.name.split(' ')[0]}</Text>
+          <Text style={styles.crownValue}>{entry.detail}</Text>
+        </>
+      ) : (
+        <>
+          <View style={styles.crownEmptyDot} />
+          <Text style={styles.crownEmpty}>No leader yet</Text>
+        </>
+      )}
+    </View>
   );
 }
 
@@ -577,7 +653,7 @@ function makeStyles(colors: Palette) {
       marginTop: spacing.sm, backgroundColor: colors.accentGlow, borderRadius: radius.pill,
       paddingHorizontal: 8, paddingVertical: 1, minWidth: 20, alignItems: 'center',
     },
-    countBadgeText: { ...typography.caption, fontSize: 11, color: colors.accent, fontWeight: '700' },
+    countBadgeText: { ...typography.caption, fontSize: 11, color: colors.accent, fontFamily: fonts.bodyBold },
     // Open invites
     inviteRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
     inviteMid: { flex: 1, gap: 2 },
@@ -593,7 +669,7 @@ function makeStyles(colors: Palette) {
       backgroundColor: colors.accent, borderRadius: radius.pill,
       paddingHorizontal: spacing.md, paddingVertical: 6,
     },
-    acceptBtnText: { ...typography.caption, fontSize: 12, color: colors.onAccent, fontWeight: '700' },
+    acceptBtnText: { ...typography.caption, fontSize: 12, color: colors.onAccent, fontFamily: fonts.bodyBold },
     // Masthead
     mastheadMid: { flex: 1, gap: 2 },
     networkRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -606,6 +682,26 @@ function makeStyles(colors: Palette) {
     crestMono: { alignItems: 'center', justifyContent: 'center' },
     crestText: { ...typography.bodySemiBold, fontSize: 15, letterSpacing: 0.5 },
     pulseCardNetwork: { borderColor: colors.gold },
+    // Staff manage bar
+    manageBar: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm,
+      backgroundColor: colors.goldGlow, borderWidth: 1, borderColor: colors.gold,
+      borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    },
+    manageText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.gold, flex: 1 },
+    seeAll: { ...typography.caption, color: colors.gold, fontFamily: fonts.bodySemi },
+    // Champions strip
+    champRow: { flexDirection: 'row', gap: spacing.sm },
+    crownCard: {
+      flex: 1, alignItems: 'center', gap: 4,
+      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+      borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.xs,
+    },
+    crownLabel: { ...typography.caption, fontSize: 10.5, color: colors.gold, textTransform: 'uppercase', letterSpacing: 0.6, textAlign: 'center' },
+    crownName: { ...typography.bodySemiBold, fontSize: 13 },
+    crownValue: { ...typography.caption, fontSize: 11, color: colors.muted, textAlign: 'center', fontVariant: ['tabular-nums'] },
+    crownEmptyDot: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceRaised },
+    crownEmpty: { ...typography.caption, fontSize: 11, color: colors.muted, marginTop: 2 },
     // Prospect (join-the-network) card
     // Standard border — the GOLD trim is the network's earned mark; a prospect
     // card wearing it would dilute what the paid tier looks like.
@@ -626,7 +722,7 @@ function makeStyles(colors: Palette) {
     prospectBtnText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.onAccent },
     prospectClaim: { ...typography.caption, color: colors.accent, textDecorationLine: 'underline' },
     moreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm },
-    moreText: { ...typography.caption, color: colors.accent, fontWeight: '600' },
+    moreText: { ...typography.caption, color: colors.accent, fontFamily: fonts.bodySemi },
     openEmpty: {
       backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1,
       borderColor: colors.border, borderStyle: 'dashed', padding: spacing.md,

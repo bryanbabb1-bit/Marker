@@ -11,6 +11,8 @@ export interface User {
   handicap_updated_at: string | null;
   profile_photo_url: string | null;
   home_course_id: string | null;
+  // The club this user manages, if any (drives the staff "Manage club" entry).
+  staff_club_id?: string | null;
   // 0/1 from SQLite — the raw push token never leaves the server.
   push_enabled: number;
   created_at: string;

@@ -13,7 +13,14 @@ const ME_COLUMNS = `id, email, first_name, last_name, ghin_number, handicap,
   (expo_push_token IS NOT NULL) AS push_enabled, created_at, updated_at`;
 
 async function selectMe(env: Env, userId: string) {
-  return env.DB.prepare(`SELECT ${ME_COLUMNS} FROM users WHERE id = ?`).bind(userId).first();
+  const me = await env.DB.prepare(`SELECT ${ME_COLUMNS} FROM users WHERE id = ?`).bind(userId).first<Record<string, unknown>>();
+  if (!me) return me;
+  // Surface the club this user manages (if any) so the app can show the staff
+  // "Manage club" entry without a second request. Null for ordinary members.
+  const staff = await env.DB.prepare('SELECT club_id FROM club_staff WHERE user_id = ? LIMIT 1')
+    .bind(userId).first<{ club_id: string }>();
+  me.staff_club_id = staff?.club_id ?? null;
+  return me;
 }
 
 // GET /me — returns the current user's profile, lazily creating the row on

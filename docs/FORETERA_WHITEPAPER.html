@@ -381,11 +381,11 @@
 
 <h3>Network membership</h3>
 <div class="callout">
-  <strong>Status — shipped (June 2026):</strong> the club model is live in production. Every course is backed by a club record carrying <code>network</code> or <code>prospect</code> status; network boards wear the gold crest masthead. <strong>The demand engine is live too:</strong> members at a prospect club see a gentle "ask your pro" card on their home board — every tap is recorded as a per-member demand signal, and the in-app claim pager shows that count back to staff ("N members here have asked") beside the membership pitch and pricing. Next: full club branding (uploaded crest art), the club leaderboard scope, the staff pulse dashboard, and claim&nbsp;→&nbsp;checkout.
+  <strong>Status — shipped (June 2026):</strong> network membership is now a real product, not a badge. A network club gets <strong>monthly champions</strong> (three crowns — Most Wins, Most Played, Best Win % — live all month, frozen at month end and pushed to the winners), a <strong>staff pulse dashboard</strong> (in-app, staff-gated: weekly engagement, an 8-week trend, new vs returning golfers, a churn watch-list of members gone quiet, and live demand), and <strong>club identity</strong> (crest upload, club color, a pinned note). The <strong>demand engine</strong> runs on prospect boards: members tap "ask your pro," every tap is a per-member signal, and the claim pager shows that count back to staff. Next: full board theming + claim&nbsp;→&nbsp;checkout that auto-provisions the club.
 </div>
 <p>Every course is playable, but a course can be a <strong>network club</strong> — a paying member of the Foretera network. The distinction is what creates the sales motion:</p>
 <ul>
-  <li><strong>In-network clubs</strong> get their crest and colors on the Feed, a verified badge in discovery, a members' leaderboard, and a pulse dashboard for staff. Their games surface first to their own members.</li>
+  <li><strong>In-network clubs</strong> get monthly crowned champions, their crest and colors on the Feed, a members' leaderboard, and a real staff pulse dashboard (engagement, churn, demand). Their games surface first to their own members.</li>
   <li><strong>Out-of-network clubs</strong> still work as venues — but when a member lands on that club's board, Foretera surfaces a gentle prompt: <em>"Prairie Highlands isn't part of the Foretera network yet. Want your club in? Ask your pro or GM to get in touch,"</em> with a one-tap share and a contact path. Members become the demand signal that sells the next club.</li>
 </ul>
 
@@ -426,8 +426,8 @@
 <table>
   <thead><tr><th>Horizon</th><th>What ships</th></tr></thead>
   <tbody>
-    <tr><td><strong>Now (live)</strong></td><td>Discovery, create/challenge, messaging, manual score entry, hidden-entry lock, WHS settlement + reveal (participant POV + <strong>neutral broadcast mode for spectators</strong>), career records (rivalries, course form, milestones) &amp; leaderboards, the club board (open invites + accept-in-place + pulse, <strong>club masthead with crest + gold network lockup</strong>), <strong>the "ask your pro" demand engine + claim pager with live member-demand counts</strong>, 5-tab navigation, Black + Gold brand.</td></tr>
-    <tr><td><strong>Club layer (next)</strong></td><td>Full club branding (uploaded crest art + colors), the club leaderboard scope, staff pulse dashboard, claim → Stripe checkout flipping the network flag automatically.</td></tr>
+    <tr><td><strong>Now (live)</strong></td><td>Discovery, create/challenge, messaging, manual score entry, hidden-entry lock, WHS settlement + reveal (participant POV + neutral spectator broadcast), career records &amp; leaderboards, the club board, the demand engine + claim pager, and the <strong>network value tier — monthly champions, the staff pulse dashboard, and club identity (crest/color/pinned note)</strong>. 5-tab navigation, Black + Gold brand.</td></tr>
+    <tr><td><strong>Club layer (next)</strong></td><td>Full board theming with the club's crest + colors, the in-app club leaderboard scope, and claim → Stripe checkout that auto-provisions the network flag + staff.</td></tr>
     <tr><td><strong>Trust upgrades</strong></td><td>Scorecard <strong>photo verification</strong> (the original "Quell" OCR engine) as an optional anti-cheat layer; GHIN auto-lookup.</td></tr>
     <tr><td><strong>Competition</strong></td><td>Club ladders, leagues, events, and cross-club regional play on the same settlement engine.</td></tr>
   </tbody>
@@ -437,7 +437,7 @@
 
 <div class="footer">
   <p><strong style="font-family:var(--display)">FORETERA</strong> — Post a match. Settle the score.</p>
-  <p>White paper v1.1 (June 12, 2026 — club model shipped, pricing added) · Black + Gold "Members" brand · Display type Plus Jakarta Sans, body Inter. This document is maintained in the repository at <code>docs/FORETERA_WHITEPAPER.html</code> and updated on every meaningful push. Print to PDF for a shareable deck.</p>
+  <p>White paper v1.2 (June 13, 2026 — network value tier shipped: champions, staff dashboard, club identity) · Black + Gold "Members" brand · Display type Plus Jakarta Sans, body Inter. This document is maintained in the repository at <code>docs/FORETERA_WHITEPAPER.html</code> and updated on every meaningful push. Print to PDF for a shareable deck.</p>
   <p class="muted">Foretera is a scorecard and match-discovery tool, not a wagering service. The app never processes money; all settlement happens off-platform.</p>
 </div>
 
