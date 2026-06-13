@@ -138,6 +138,15 @@ export interface ClubSummary {
   status: 'network' | 'prospect';
   crest_url: string | null;
   primary_color: string | null;
+  // Member demand signals for this club (prospects) — social proof shown on
+  // the prospect card before the viewer has tapped anything.
+  interest_count?: number;
+}
+
+// GET /clubs/:id — the claim screen's view: the club + how many members have
+// asked for it (the demand counter, shown back as social proof).
+export interface ClubDetail extends ClubSummary {
+  interest_count: number;
 }
 
 export interface Message {

@@ -10,6 +10,7 @@ import { handleMatches } from './routes/matches';
 import { handleScorecards } from './routes/scorecards';
 import { handleMessages } from './routes/messages';
 import { handleCourses } from './routes/courses';
+import { handleClubs } from './routes/clubs';
 import { handleFavorites } from './routes/favorites';
 import { handlePlayer } from './routes/players';
 import { runReminders } from './routes/reminders';
@@ -108,6 +109,8 @@ async function handleRequest(
     }
   } else if (root === 'courses') {
     response = await handleCourses(request, auth, env, segments);
+  } else if (root === 'clubs') {
+    response = await handleClubs(request, auth, env, segments);
   } else if (root === 'favorites') {
     response = await handleFavorites(request, auth, env, segments);
   } else if (root === 'players' && method === 'GET') {

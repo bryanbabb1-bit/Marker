@@ -100,13 +100,22 @@ onboarding, settings.
 
 ## 6. Club network layer (the business)
 
-`clubs.status` drives everything (strategy doc A1 — **shipped**):
-- `network` → gold badge on the board today; next: crest/colors, club
-  leaderboard scope, staff pulse dashboard (A3).
-- `prospect` → next: the "ask your pro/GM" card + share-with-club lead-gen with
-  demand tracking (A2), then "claim your club" → Stripe checkout flipping the
-  flag (A4). Club billing happens OFF-app (B2B SaaS — no app-store cut);
-  pricing in `PRICING.md` ($149/mo · $1,490/yr · founders $990/yr).
+`clubs.status` drives everything (strategy doc A1 + A2 — **shipped**):
+- `network` → gold crest masthead + lockup + gold-trimmed pulse on the board;
+  next (A3): uploaded crest art/colors, club leaderboard scope, staff pulse
+  dashboard.
+- `prospect` → the **demand engine** is live: members at a prospect club see a
+  dismissible "ask your pro" card on their HOME board only (14-day local
+  snooze). "Tell your pro" records a per-member signal (`club_interest`,
+  unique per club+user — counts people, not taps) then opens a share sheet
+  with a forwardable pitch. "Claim it" opens the staff pager
+  (`app/(app)/club-claim.tsx`): perks, pricing, and the live demand count
+  ("N members here have asked") with a mailto CTA — the Stripe checkout
+  replaces the mailto when billing lands (A4). Club billing stays OFF-app
+  (B2B SaaS — no app-store cut); pricing in `PRICING.md` ($149/mo ·
+  $1,490/yr · founders $990/yr).
+- API: `GET /clubs/:id` (summary + interest_count), `POST /clubs/:id/interest`
+  (INSERT OR IGNORE; no-op success on network clubs).
 
 ## 7. Ops & conventions
 
@@ -147,7 +156,8 @@ a later anti-cheat option, GHIN auto-lookup.
 
 | Date | HEAD | What changed |
 |---|---|---|
-| 2026-06-12 | (this push) | **Spectator broadcast mode** on the reveal (named deltas, per-player colors `live`/`liveAlt`, neutral backdrop, legend — no more creator-POV for bystanders); **club masthead** on the Feed (crest/monogram, network lockup, gold-trimmed pulse); first agent-gated release (release-qa PASS + ux-audit findings fixed pre-push) |
+| 2026-06-12 | (this push) | **A2 demand engine**: `club_interest` (migration 0015) + `/clubs/:id` + `/clubs/:id/interest`; prospect "ask your pro" card on home boards (share flow, 14-day snooze); claim pager screen with live demand count + pricing; feed course-picker clear fix |
+| 2026-06-12 | `2afb2aa` | **Spectator broadcast mode** on the reveal (named deltas, per-player colors `live`/`liveAlt`, neutral backdrop, legend — no more creator-POV for bystanders); **club masthead** on the Feed (crest/monogram, network lockup, gold-trimmed pulse); first agent-gated release (release-qa PASS + ux-audit findings fixed pre-push) |
 | 2026-06-12 | `d7a7847` | Tabs 6→5 (Settings behind the header menu); testing agents (`.claude/agents/` + `AGENTS.md`); `PRICING.md`; white paper v1.1; this doc rewritten as-built |
 | 2026-06-12 | `e5da0db` | **Clubs model (A1)** — migration 0014, network/prospect flag, gold badge; accept-from-feed; 52-match seed across 8 clubs; Black + Gold icon/splash/store assets |
 | 2026-06-12 | `bb2bccf` | Feed → club board (open invites + pulse); Record → career page (rivals, course form, milestones, bests) |

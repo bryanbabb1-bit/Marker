@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Image,
+  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Image, Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '@/lib/useApi';
 import { useColors } from '@/store/useThemeStore';
@@ -72,6 +73,11 @@ export default function FeedScreen() {
   const [pendingAccept, setPendingAccept] = useState<OpenInvite | null>(null);
   const [sheetBusy, setSheetBusy] = useState(false);
   const [celebrate, setCelebrate] = useState<string | null>(null);
+  // Prospect card (A2): shown on the member's HOME board when the club isn't
+  // in the network. Dismissal hides it locally for 14 days; the demand signal
+  // itself lives server-side and never expires.
+  const [prospectHidden, setProspectHidden] = useState(true);
+  const [signalCount, setSignalCount] = useState<number | null>(null);
 
   // Default the feed to the player's home course ONCE (when the catalog
   // resolves). The ref stops it re-firing after the user clears the picker —
@@ -96,6 +102,9 @@ export default function FeedScreen() {
       setOpen(r.open ?? []);
       setPulse(r.pulse ?? null);
       setClub(r.club ?? null);
+      // Demand social proof shows BEFORE the viewer acts; the POST response
+      // keeps it fresh after their own tap.
+      setSignalCount(r.club?.interest_count ?? null);
     } catch (e: any) {
       setError(e?.message ?? 'Could not load the feed.');
     } finally {
@@ -105,6 +114,43 @@ export default function FeedScreen() {
   }, [api, course, date]);
 
   useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
+
+  // The prospect card only speaks on the member's HOME board — the home member
+  // is the persuasive voice to their own pro; other boards stay unsolicited.
+  const isHomeBoard = !!course && !!user?.home_course_id &&
+    courses?.find((x) => x.id === user.home_course_id)?.name === course;
+
+  // 14-day local snooze per club.
+  useEffect(() => {
+    let active = true;
+    if (!club || club.status !== 'prospect' || !isHomeBoard) { setProspectHidden(true); return; }
+    SecureStore.getItemAsync(`mp_prospect_hide_${club.id}`)
+      .then((v) => {
+        if (!active) return;
+        const snoozedAt = v ? Date.parse(v) : NaN;
+        setProspectHidden(Number.isFinite(snoozedAt) && Date.now() - snoozedAt < 14 * 86_400_000);
+      })
+      .catch(() => { if (active) setProspectHidden(false); });
+    return () => { active = false; };
+  }, [club, isHomeBoard]);
+
+  const dismissProspect = () => {
+    haptics.select();
+    setProspectHidden(true);
+    if (club) SecureStore.setItemAsync(`mp_prospect_hide_${club.id}`, new Date().toISOString()).catch(() => {});
+  };
+
+  // "Tell your pro" — record the demand signal, then hand the member a message
+  // to forward. The signal is the product; the share is the vehicle.
+  const tellYourPro = async () => {
+    if (!club) return;
+    haptics.select();
+    api.clubInterest(club.id).then((r) => setSignalCount(r.count)).catch(() => {});
+    const msg = `A bunch of us are using Foretera to set up matches at ${club.name}. ` +
+      `Clubs on the network get a branded members' board, club leaderboard, and an activity pulse for staff. ` +
+      `Worth a look for the club — foretera.app`;
+    try { await Share.share({ message: msg }); } catch { /* dismissed */ }
+  };
 
   const live = rows.filter((m) => m.status === 'accepted' || m.status === 'in_progress');
   const done = rows.filter((m) => m.status === 'completed');
@@ -185,6 +231,43 @@ export default function FeedScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.accent} />}
       >
         {error && <Text style={styles.error}>{error}</Text>}
+
+        {/* ── A2: the join-the-network prompt — home board, prospect clubs
+            only. Gentle, dismissible, never gates anything. ── */}
+        {club?.status === 'prospect' && isHomeBoard && !prospectHidden && (
+          <View style={styles.prospectCard}>
+            <View style={styles.prospectHead}>
+              <Ionicons name="shield-outline" size={16} color={colors.gold} />
+              <Text style={styles.prospectTitle} numberOfLines={2}>
+                {club.name} isn’t a Foretera club yet.
+              </Text>
+              <TouchableOpacity hitSlop={10} accessibilityRole="button" accessibilityLabel="Hide this for now" onPress={dismissProspect}>
+                <Ionicons name="close" size={18} color={colors.muted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.prospectBody}>
+              Your games here work just fine — but the club board, crest, and members’ leaderboard are waiting.
+            </Text>
+            {signalCount != null && signalCount > 0 && (
+              <Text style={styles.prospectCount}>
+                {signalCount === 1 ? '1 member here has asked.' : `${signalCount} members here have asked.`}
+              </Text>
+            )}
+            <View style={styles.prospectRow}>
+              <TouchableOpacity style={styles.prospectBtn} activeOpacity={0.8} accessibilityRole="button" onPress={tellYourPro}>
+                <Ionicons name="paper-plane-outline" size={14} color={colors.onAccent} />
+                <Text style={styles.prospectBtnText}>Tell your pro</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                hitSlop={8}
+                accessibilityRole="button"
+                onPress={() => { haptics.select(); router.push(`/(app)/club-claim?club_id=${club.id}&club_name=${encodeURIComponent(club.name)}`); }}
+              >
+                <Text style={styles.prospectClaim}>Is this your club? Claim it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* ── Club pulse — the course's weekly heartbeat. Network clubs wear
             the gold trim: the paid tier should LOOK like the paid tier. ── */}
@@ -523,6 +606,25 @@ function makeStyles(colors: Palette) {
     crestMono: { alignItems: 'center', justifyContent: 'center' },
     crestText: { ...typography.bodySemiBold, fontSize: 15, letterSpacing: 0.5 },
     pulseCardNetwork: { borderColor: colors.gold },
+    // Prospect (join-the-network) card
+    // Standard border — the GOLD trim is the network's earned mark; a prospect
+    // card wearing it would dilute what the paid tier looks like.
+    prospectCard: {
+      backgroundColor: colors.surface, borderRadius: radius.lg,
+      borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm,
+    },
+    prospectHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    prospectTitle: { ...typography.bodySemiBold, fontSize: 15, flex: 1 },
+    prospectBody: { ...typography.caption, color: colors.muted },
+    prospectCount: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.gold },
+    prospectRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+    prospectBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: colors.accent, borderRadius: radius.pill,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    },
+    prospectBtnText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.onAccent },
+    prospectClaim: { ...typography.caption, color: colors.accent, textDecorationLine: 'underline' },
     moreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm },
     moreText: { ...typography.caption, color: colors.accent, fontWeight: '600' },
     openEmpty: {

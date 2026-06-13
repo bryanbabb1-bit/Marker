@@ -4,7 +4,7 @@ import { apiJson } from '@/lib/api';
 import type {
   DiscoveryMatch, Match, Message, HoleEntry, RevealResponse, SubmitScoresResponse, HolesSetup,
   MyRecord, LeaderboardEntry, CourseSummary, TeeSummary, Favorite, PlayerProfile, Gif,
-  CourseFeedMatch, Visibility, OpenInvite, CoursePulse, ClubSummary,
+  CourseFeedMatch, Visibility, OpenInvite, CoursePulse, ClubSummary, ClubDetail,
 } from '@/types';
 
 export interface CreateMatchInput {
@@ -71,6 +71,11 @@ export function useApi() {
       // Course catalog
       getCourses: () => call<{ courses: CourseSummary[] }>('/courses'),
       getCourse: (id: string) => call<{ course: CourseSummary; tees: TeeSummary[] }>(`/courses/${id}`),
+
+      // Clubs (the network layer)
+      getClub: (id: string) => call<ClubDetail>(`/clubs/${id}`),
+      clubInterest: (id: string) =>
+        call<{ recorded: boolean; count: number }>(`/clubs/${id}/interest`, { method: 'POST' }),
 
       // Profile
       getMe: () => call<any>('/me'),
